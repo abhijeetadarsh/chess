@@ -6,6 +6,12 @@
       "runtimeExecutable": "C:\\ProgramData\\miniconda3\\condabin\\conda.bat",
       "runtimeArgs": ["run", "-n", "chess-analysis", "--no-capture-output", "python", "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"],
       "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "port": 5173
     }
   ]
 }

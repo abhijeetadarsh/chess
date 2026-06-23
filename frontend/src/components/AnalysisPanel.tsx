@@ -4,18 +4,22 @@ import { ChevronLeft, ChevronRight, Loader2, PanelRightClose, PanelRightOpen } f
 import type { UseAnalysis } from '@/hooks/useAnalysis'
 import { CLASS_BG, CLASS_LABEL, ISSUE_CLASSES } from '@/lib/chess-assets'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { MoveCard } from './MoveCard'
 
 const CLASS_ORDER = ['brilliant', 'great', 'best', 'good', 'inaccuracy', 'mistake', 'blunder', 'critical_blunder']
 
 export function AnalysisPanel({
   analysis,
-  collapsed,
+  collapsed = false,
   onToggleCollapse,
+  embedded = false,
 }: {
   analysis: UseAnalysis
-  collapsed: boolean
-  onToggleCollapse: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
+  /** Embedded mode drops the card chrome + collapse button (used inside the mobile Moves tab). */
+  embedded?: boolean
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLDivElement>(null)
@@ -49,7 +53,7 @@ export function AnalysisPanel({
     }
   }
 
-  if (collapsed) {
+  if (collapsed && onToggleCollapse) {
     return (
       <div className="flex w-10 flex-col items-center overflow-hidden rounded-xl border bg-card shadow">
         <button
@@ -64,23 +68,32 @@ export function AnalysisPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card shadow">
-      <div className="flex flex-shrink-0 items-center justify-between px-4 py-3">
-        <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-          Move analysis
-        </span>
-        <button
-          onClick={onToggleCollapse}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-          title="Collapse"
-        >
-          <PanelRightClose className="h-4 w-4" />
-        </button>
-      </div>
+    <div
+      className={cn(
+        'flex min-h-0 flex-col overflow-hidden',
+        embedded ? 'h-full' : 'rounded-xl border bg-card shadow',
+      )}
+    >
+      {!embedded && (
+        <div className="flex flex-shrink-0 items-center justify-between px-4 py-3">
+          <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+            Move analysis
+          </span>
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+              title="Collapse"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Game header — moved here so the board card stays all-board */}
       {analysis.meta && (
-        <div className="flex-shrink-0 border-b px-4 pb-3">
+        <div className={cn('flex-shrink-0 border-b px-4 pb-3', embedded && 'pt-4')}>
           <div className="truncate text-sm font-bold tracking-tight">
             {analysis.meta.white} vs {analysis.meta.black} · {analysis.meta.result}
           </div>

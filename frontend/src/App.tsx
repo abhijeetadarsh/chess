@@ -7,6 +7,7 @@ import { LoginPage } from '@/components/LoginPage'
 import { SourcesPanel } from '@/components/SourcesPanel'
 import { BoardPanel } from '@/components/BoardPanel'
 import { AnalysisPanel } from '@/components/AnalysisPanel'
+import { MobileLayout } from '@/components/MobileLayout'
 import { SettingsDrawer } from '@/components/SettingsDrawer'
 
 function usePersistentToggle(key: string) {
@@ -45,23 +46,6 @@ function MainApp() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const sources = (
-    <SourcesPanel
-      analysis={analysis}
-      collapsed={wide && sourcesCollapsed}
-      onToggleCollapse={toggleSources}
-      onOpenSettings={() => setSettingsOpen(true)}
-    />
-  )
-  const board = <BoardPanel analysis={analysis} />
-  const analysisPanel = (
-    <AnalysisPanel
-      analysis={analysis}
-      collapsed={wide && analysisCollapsed}
-      onToggleCollapse={toggleAnalysis}
-    />
-  )
-
   return (
     <>
       <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
@@ -74,16 +58,21 @@ function MainApp() {
             }`,
           }}
         >
-          {sources}
-          {board}
-          {analysisPanel}
+          <SourcesPanel
+            analysis={analysis}
+            collapsed={sourcesCollapsed}
+            onToggleCollapse={toggleSources}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+          <BoardPanel analysis={analysis} />
+          <AnalysisPanel
+            analysis={analysis}
+            collapsed={analysisCollapsed}
+            onToggleCollapse={toggleAnalysis}
+          />
         </div>
       ) : (
-        <div className="flex min-h-screen flex-col gap-3 p-3">
-          {sources}
-          <div className="min-h-[70vh]">{board}</div>
-          <div className="h-[600px]">{analysisPanel}</div>
-        </div>
+        <MobileLayout analysis={analysis} onOpenSettings={() => setSettingsOpen(true)} />
       )}
     </>
   )
