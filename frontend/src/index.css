@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Theme tokens (shadcn variable system, HSL triplets) ─────────────────── */
+@layer base {
+  :root {
+    --background: 240 11% 96%;
+    --foreground: 240 6% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 12%;
+    --primary: 210 100% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 216 16% 94%;
+    --secondary-foreground: 240 6% 12%;
+    --muted: 216 16% 94%;
+    --muted-foreground: 240 2% 44%;
+    --accent: 216 16% 94%;
+    --accent-foreground: 240 6% 12%;
+    --destructive: 0 73% 53%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 12% 91%;
+    --input: 240 12% 91%;
+    --ring: 210 100% 45%;
+    --radius: 0.85rem;
+
+    /* Move-classification palette (shared across themes) */
+    --brilliant: 175 80% 37%;
+    --great: 220 84% 56%;
+    --best: 222 100% 68%;
+    --good: 89 68% 37%;
+    --inaccuracy: 40 78% 48%;
+    --mistake: 22 73% 56%;
+    --blunder: 0 73% 53%;
+    --critical: 0 74% 36%;
+  }
+
+  [data-theme='dark'] {
+    --background: 0 0% 0%;
+    --foreground: 240 11% 96%;
+    --card: 240 3% 11%;
+    --card-foreground: 240 11% 96%;
+    --popover: 240 3% 11%;
+    --popover-foreground: 240 11% 96%;
+    --primary: 211 100% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 2% 17%;
+    --secondary-foreground: 240 11% 96%;
+    --muted: 240 2% 17%;
+    --muted-foreground: 240 3% 60%;
+    --accent: 240 2% 17%;
+    --accent-foreground: 240 11% 96%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 18%;
+    --input: 240 4% 18%;
+    --ring: 211 100% 52%;
+  }
+
+  [data-theme='midnight'] {
+    --background: 225 19% 8%;
+    --foreground: 231 56% 94%;
+    --card: 225 22% 12%;
+    --card-foreground: 231 56% 94%;
+    --popover: 225 22% 12%;
+    --popover-foreground: 231 56% 94%;
+    --primary: 244 100% 70%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 226 21% 17%;
+    --secondary-foreground: 231 56% 94%;
+    --muted: 226 21% 17%;
+    --muted-foreground: 231 35% 66%;
+    --accent: 226 21% 17%;
+    --accent-foreground: 231 56% 94%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 21% 21%;
+    --input: 228 21% 21%;
+    --ring: 244 100% 70%;
+  }
+
+  [data-theme='slate'] {
+    --background: 213 28% 8%;
+    --foreground: 206 33% 92%;
+    --card: 214 24% 12%;
+    --card-foreground: 206 33% 92%;
+    --popover: 214 24% 12%;
+    --popover-foreground: 206 33% 92%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 24% 16%;
+    --secondary-foreground: 206 33% 92%;
+    --muted: 214 24% 16%;
+    --muted-foreground: 212 15% 60%;
+    --accent: 214 24% 16%;
+    --accent-foreground: 206 33% 92%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 24% 22%;
+    --input: 214 24% 22%;
+    --ring: 217 91% 60%;
+  }
+
+  [data-theme='contrast'] {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 50 100% 52%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 9%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 0 0% 74%;
+    --accent: 0 0% 9%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 50 100% 52%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.011em;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+/* Thin scrollbars to match the app surfaces */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ── Buttery piece movement ──────────────────────────────────────────────────
+   react-chessboard animates each `[data-piece]` via a `transform` transition.
+   Promoting every piece to its own GPU compositor layer (`will-change` +
+   `translateZ`) runs the animation on the compositor thread — so it renders at
+   the display's native/max refresh rate (60/120/144 Hz) independent of any
+   main-thread work — and a soft ease-out curve makes the glide feel smoother. */
+[data-piece] {
+  will-change: transform;
+  backface-visibility: hidden;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+[data-piece] img {
+  transform: translateZ(0);
+}

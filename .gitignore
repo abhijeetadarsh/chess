@@ -1,0 +1,29 @@
+# ── Python ───────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Runtime data (user accounts/sessions) ────
+data/
+
+# ── Stockfish binary (download per-OS via setup_stockfish.py) ──
+stockfish/
+
+# ── Frontend ─────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# ── Editors / OS ─────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Claude Code local state ──────────────────
+.claude/settings.local.json
+.claude/*.lock

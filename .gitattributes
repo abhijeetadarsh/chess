@@ -1,0 +1,5 @@
+# Normalize line endings in the repo, but force LF for files that run on the
+# Linux server (a CRLF shebang breaks shell scripts). Keep CRLF for Windows .bat.
+* text=auto
+*.sh    text eol=lf
+*.bat   text eol=crlf

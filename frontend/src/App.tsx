@@ -1,0 +1,104 @@
+import { useEffect, useState } from 'react'
+import { Loader2 } from 'lucide-react'
+
+import { useAuth } from '@/hooks/useAuth'
+import { useAnalysis } from '@/hooks/useAnalysis'
+import { LoginPage } from '@/components/LoginPage'
+import { SourcesPanel } from '@/components/SourcesPanel'
+import { BoardPanel } from '@/components/BoardPanel'
+import { AnalysisPanel } from '@/components/AnalysisPanel'
+import { SettingsDrawer } from '@/components/SettingsDrawer'
+
+function usePersistentToggle(key: string) {
+  const [on, setOn] = useState(() => localStorage.getItem(key) === '1')
+  const toggle = () =>
+    setOn((v) => {
+      localStorage.setItem(key, v ? '0' : '1')
+      return !v
+    })
+  return [on, toggle] as const
+}
+
+function MainApp() {
+  const analysis = useAnalysis()
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [sourcesCollapsed, toggleSources] = usePersistentToggle('ca_sources_col')
+  const [analysisCollapsed, toggleAnalysis] = usePersistentToggle('ca_analysis_col')
+  // Desktop-first: when the width is reported as 0 (some embedded renderers do
+  // this on first paint) assume the wide 3-pane layout, then correct on resize.
+  const [wide, setWide] = useState(() => (window.innerWidth === 0 ? true : window.innerWidth >= 1024))
+
+  useEffect(() => {
+    const compute = () => {
+      if (window.innerWidth > 0) setWide(window.innerWidth >= 1024)
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    return () => window.removeEventListener('resize', compute)
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSettingsOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const sources = (
+    <SourcesPanel
+      analysis={analysis}
+      collapsed={wide && sourcesCollapsed}
+      onToggleCollapse={toggleSources}
+      onOpenSettings={() => setSettingsOpen(true)}
+    />
+  )
+  const board = <BoardPanel analysis={analysis} />
+  const analysisPanel = (
+    <AnalysisPanel
+      analysis={analysis}
+      collapsed={wide && analysisCollapsed}
+      onToggleCollapse={toggleAnalysis}
+    />
+  )
+
+  return (
+    <>
+      <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {wide ? (
+        <div
+          className="grid h-screen gap-[18px] p-[18px]"
+          style={{
+            gridTemplateColumns: `${sourcesCollapsed ? '40px' : '300px'} minmax(440px,1.1fr) ${
+              analysisCollapsed ? '40px' : 'minmax(320px,1fr)'
+            }`,
+          }}
+        >
+          {sources}
+          {board}
+          {analysisPanel}
+        </div>
+      ) : (
+        <div className="flex min-h-screen flex-col gap-3 p-3">
+          {sources}
+          <div className="min-h-[70vh]">{board}</div>
+          <div className="h-[600px]">{analysisPanel}</div>
+        </div>
+      )}
+    </>
+  )
+}
+
+export default function App() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+  if (!user) return <LoginPage />
+  return <MainApp />
+}

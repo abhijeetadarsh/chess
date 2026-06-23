@@ -1,0 +1,128 @@
+import type {
+  AuthResponse,
+  AuthUser,
+  EvalResult,
+  GameInfo,
+  StreamEvent,
+  UserSettings,
+} from './types'
+
+const TOKEN_KEY = 'ca_token'
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY)
+export const setToken = (t: string) => localStorage.setItem(TOKEN_KEY, t)
+export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
+
+function authHeaders(): Record<string, string> {
+  const t = getToken()
+  return t ? { Authorization: `Bearer ${t}` } : {}
+}
+
+async function asError(r: Response): Promise<never> {
+  let detail = r.statusText
+  try {
+    const j = await r.json()
+    detail = j.detail || detail
+  } catch {
+    /* ignore */
+  }
+  throw new Error(detail)
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export async function login(username: string, password: string): Promise<AuthResponse> {
+  const r = await fetch('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  if (!r.ok) return asError(r)
+  return r.json()
+}
+
+export async function register(username: string, password: string): Promise<AuthResponse> {
+  const r = await fetch('/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  if (!r.ok) return asError(r)
+  return r.json()
+}
+
+export async function fetchMe(): Promise<AuthUser> {
+  const r = await fetch('/auth/me', { headers: authHeaders() })
+  if (!r.ok) return asError(r)
+  return r.json()
+}
+
+export async function logoutRequest(): Promise<void> {
+  await fetch('/auth/logout', { method: 'POST', headers: authHeaders() }).catch(() => {})
+}
+
+export async function saveSettings(partial: Partial<UserSettings>): Promise<void> {
+  await fetch('/auth/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(partial),
+  }).catch(() => {})
+}
+
+// ── Games / analysis ───────────────────────────────────────────────────────────
+
+export async function fetchGames(
+  source: 'chesscom' | 'lichess',
+  username: string,
+  maxGames: number,
+): Promise<GameInfo[]> {
+  const r = await fetch(`/games/${source}/${encodeURIComponent(username)}?max_games=${maxGames}`)
+  if (!r.ok) return asError(r)
+  const data = await r.json()
+  return data.games
+}
+
+export async function evaluateFen(fen: string, depth = 12): Promise<EvalResult> {
+  const r = await fetch('/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fen, depth }),
+  })
+  if (!r.ok) return asError(r)
+  return r.json()
+}
+
+/**
+ * Stream NDJSON analysis events from POST /analyze/stream as an async generator.
+ * Pass an AbortSignal to cancel an in-flight analysis.
+ */
+export async function* streamAnalysis(
+  pgn: string,
+  depth: number,
+  signal?: AbortSignal,
+): AsyncGenerator<StreamEvent> {
+  const r = await fetch('/analyze/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pgn, depth }),
+    signal,
+  })
+  if (!r.ok || !r.body) return asError(r)
+
+  const reader = r.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    let nl: number
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim()
+      buf = buf.slice(nl + 1)
+      if (line) yield JSON.parse(line) as StreamEvent
+    }
+  }
+  const tail = buf.trim()
+  if (tail) yield JSON.parse(tail) as StreamEvent
+}
