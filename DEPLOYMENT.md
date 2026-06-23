@@ -230,49 +230,7 @@ the same way as section 1g–1h, proxying to the container's port 8000.
 
 ---
 
-## 6. CI/CD with GitHub Actions (HELD — using Jenkins instead, see §7)
-
-> This workflow is kept for reference but its auto-trigger is disabled. The active pipeline
-> is **Jenkins** (§7). Skip to §7 unless you want external GitHub-hosted CI.
-
-`.github/workflows/deploy.yml` builds the frontend and deploys to your server over SSH on
-push to `main`. One-time setup:
-
-**Step 1 — bootstrap the server** (installs Stockfish, creates the systemd service, lets CI
-restart it; add `DOMAIN=...` to also configure nginx):
-
-```bash
-git clone <your-repo-url> /opt/chess-analysis
-DOMAIN=chess.example.com sudo -E bash /opt/chess-analysis/scripts/server-setup.sh
-```
-
-**Step 2 — create an SSH deploy key** (no passphrase) and authorise its *public* half on the
-server:
-
-```bash
-ssh-keygen -t ed25519 -f deploy_key -N ""
-ssh-copy-id -i deploy_key.pub  YOUR_USER@YOUR_SERVER
-```
-
-**Step 3 — add repository secrets** in GitHub → *Settings → Secrets and variables → Actions*:
-
-| Secret | Example | What it is |
-|--------|---------|------------|
-| `SSH_HOST` | `203.0.113.10` | server IP / hostname |
-| `SSH_USER` | `ubuntu` | the deploy user (the one you ran setup as) |
-| `SSH_PRIVATE_KEY` | *(paste the whole `deploy_key` file)* | the **private** key |
-| `DEPLOY_PATH` | `/opt/chess-analysis` | where the app lives on the server |
-| `SSH_PORT` | `22` | optional (defaults to 22) |
-
-**Step 4 — push.** `git push origin main` runs the pipeline: build UI → rsync project →
-install Python deps → restart service → `/health` check.
-
-> The workflow never touches `data/` (your user DB), `stockfish/`, or `.venv` on the server —
-> they're excluded from the sync, so user accounts and the engine survive every deploy.
-
----
-
-## 7. CI/CD with Jenkins + venv (active, same-server)
+## 6. CI/CD with Jenkins + venv (same-server)
 
 Jenkins runs **on tomiarb.com**, so it deploys locally — no SSH keys/secrets, and no conda. The
 pipeline (`Jenkinsfile`) builds the frontend (Node from the Jenkins NodeJS tool), creates a
