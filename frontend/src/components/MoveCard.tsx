@@ -1,8 +1,43 @@
 import { memo } from 'react'
 
 import { CLASS_BG, CLASS_BORDER, CLASS_ICON, CLASS_LABEL, CLASS_TEXT, formatEval } from '@/lib/chess-assets'
+import type { AltMove } from '@/lib/types'
 import type { MoveData } from '@/lib/types'
 import { cn } from '@/lib/utils'
+
+/** Clickable engine-alternative chips. Shared by MoveCard and the mobile coach card. */
+export function AltMoveButtons({
+  alternatives,
+  onPlay,
+}: {
+  alternatives: AltMove[]
+  onPlay: (uci: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {alternatives.map((a, i) => (
+        <button
+          key={i}
+          title={`Play ${a.san}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onPlay(a.uci)
+          }}
+          className={cn(
+            'flex items-center gap-1 rounded-lg border bg-secondary px-2.5 py-1.5 font-mono text-xs transition-all hover:-translate-y-px hover:border-good hover:text-good hover:shadow-sm',
+            a.is_played ? 'border-primary text-primary' : 'border-transparent',
+          )}
+        >
+          {a.san}
+          <span className="text-[0.7rem] text-muted-foreground">
+            {a.mate != null ? `#${Math.abs(a.mate)}` : (a.eval >= 0 ? '+' : '') + a.eval}
+          </span>
+          <span className="text-[0.62rem] opacity-50">▶</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 interface MoveCardProps {
   move: MoveData
@@ -54,28 +89,7 @@ function MoveCardImpl({ move, index, active, onSelect, onPlayAlt }: MoveCardProp
           <div className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
             Top engine moves · click to play
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {move.alternatives.map((a, i) => (
-              <button
-                key={i}
-                title={`Play ${a.san}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onPlayAlt(index, a.uci)
-                }}
-                className={cn(
-                  'flex items-center gap-1 rounded-lg border bg-secondary px-2.5 py-1.5 font-mono text-xs transition-all hover:-translate-y-px hover:border-good hover:text-good hover:shadow-sm',
-                  a.is_played ? 'border-primary text-primary' : 'border-transparent',
-                )}
-              >
-                {a.san}
-                <span className="text-[0.7rem] text-muted-foreground">
-                  {a.mate != null ? `#${Math.abs(a.mate)}` : (a.eval >= 0 ? '+' : '') + a.eval}
-                </span>
-                <span className="text-[0.62rem] opacity-50">▶</span>
-              </button>
-            ))}
-          </div>
+          <AltMoveButtons alternatives={move.alternatives} onPlay={(uci) => onPlayAlt(index, uci)} />
         </div>
       )}
     </div>

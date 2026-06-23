@@ -14,6 +14,112 @@ function resultClass(r: string) {
   return r === 'win' ? 'text-good' : r === 'lose' ? 'text-blunder' : 'text-muted-foreground'
 }
 
+/**
+ * Fetch form (Chess.com / Lichess / PGN) + engine-speed selector. Shared by the
+ * desktop sidebar and the mobile "Games" tab so both stay in sync.
+ */
+export function SourceForm({ analysis }: { analysis: UseAnalysis }) {
+  const { settings, updateSetting } = useAuth()
+  const [tab, setTab] = useState(
+    ['chesscom', 'lichess', 'pgn'].includes(settings.default_source) ? settings.default_source : 'chesscom',
+  )
+  const [ccUser, setCcUser] = useState(settings.chesscom_username)
+  const [lcUser, setLcUser] = useState(settings.lichess_username)
+  const [limit, setLimit] = useState(settings.default_games)
+  const [pgnText, setPgnText] = useState('')
+
+  return (
+    <>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="w-full">
+          <TabsTrigger value="chesscom" className="flex-1">
+            Chess.com
+          </TabsTrigger>
+          <TabsTrigger value="lichess" className="flex-1">
+            Lichess
+          </TabsTrigger>
+          <TabsTrigger value="pgn" className="flex-1">
+            PGN
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chesscom" className="space-y-2.5">
+          <div className="flex gap-2">
+            <Input placeholder="Username (e.g. hikaru)" value={ccUser} onChange={(e) => setCcUser(e.target.value)} />
+            <Input
+              type="number"
+              className="w-16 text-center"
+              min={1}
+              max={50}
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+            />
+          </div>
+          <Button className="w-full" onClick={() => analysis.fetchGamesFor('chesscom', ccUser, limit)}>
+            Fetch games
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="lichess" className="space-y-2.5">
+          <div className="flex gap-2">
+            <Input placeholder="Username (e.g. DrNykterstein)" value={lcUser} onChange={(e) => setLcUser(e.target.value)} />
+            <Input
+              type="number"
+              className="w-16 text-center"
+              min={1}
+              max={50}
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+            />
+          </div>
+          <Button className="w-full" onClick={() => analysis.fetchGamesFor('lichess', lcUser, limit)}>
+            Fetch games
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="pgn" className="space-y-2.5">
+          <textarea
+            className="h-[104px] w-full resize-none rounded-md border border-transparent bg-secondary/60 p-3 font-mono text-xs outline-none transition-colors focus:border-primary focus:bg-card focus:ring-2 focus:ring-ring"
+            placeholder="Paste PGN here..."
+            value={pgnText}
+            onChange={(e) => setPgnText(e.target.value)}
+            rows={5}
+          />
+          <Button className="w-full" onClick={() => analysis.analyzePgn(pgnText, null)}>
+            Analyze PGN
+          </Button>
+        </TabsContent>
+      </Tabs>
+
+      {/* Engine speed */}
+      <div className="mt-4">
+        <div className="mb-2 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+          Engine speed
+        </div>
+        <div className="flex gap-0.5 rounded-lg bg-muted p-1">
+          {SPEED_PRESETS.map((p) => (
+            <button
+              key={p.depth}
+              onClick={() => updateSetting('engine_depth', p.depth)}
+              className={cn(
+                'flex-1 rounded-md px-1.5 py-1.5 text-sm font-semibold transition-all',
+                settings.engine_depth === p.depth
+                  ? 'bg-primary text-primary-foreground shadow'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-1.5 text-[0.72rem] text-muted-foreground">
+          {SPEED_PRESETS.find((p) => p.depth === settings.engine_depth)?.hint ?? ''}
+        </div>
+      </div>
+    </>
+  )
+}
+
 export function SourcesPanel({
   analysis,
   collapsed,
@@ -25,15 +131,6 @@ export function SourcesPanel({
   onToggleCollapse: () => void
   onOpenSettings: () => void
 }) {
-  const { settings, updateSetting } = useAuth()
-  const [tab, setTab] = useState(
-    ['chesscom', 'lichess', 'pgn'].includes(settings.default_source) ? settings.default_source : 'chesscom',
-  )
-  const [ccUser, setCcUser] = useState(settings.chesscom_username)
-  const [lcUser, setLcUser] = useState(settings.lichess_username)
-  const [limit, setLimit] = useState(settings.default_games)
-  const [pgnText, setPgnText] = useState('')
-
   if (collapsed) {
     return (
       <div className="flex w-10 flex-col items-center gap-1.5 overflow-hidden rounded-xl border bg-card py-3 shadow">
@@ -83,92 +180,7 @@ export function SourcesPanel({
 
       {/* Fetch form */}
       <div className="flex-shrink-0 px-4 pb-4 pt-3">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full">
-            <TabsTrigger value="chesscom" className="flex-1">
-              Chess.com
-            </TabsTrigger>
-            <TabsTrigger value="lichess" className="flex-1">
-              Lichess
-            </TabsTrigger>
-            <TabsTrigger value="pgn" className="flex-1">
-              PGN
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="chesscom" className="space-y-2.5">
-            <div className="flex gap-2">
-              <Input placeholder="Username (e.g. hikaru)" value={ccUser} onChange={(e) => setCcUser(e.target.value)} />
-              <Input
-                type="number"
-                className="w-16 text-center"
-                min={1}
-                max={50}
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-              />
-            </div>
-            <Button className="w-full" onClick={() => analysis.fetchGamesFor('chesscom', ccUser, limit)}>
-              Fetch games
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="lichess" className="space-y-2.5">
-            <div className="flex gap-2">
-              <Input placeholder="Username (e.g. DrNykterstein)" value={lcUser} onChange={(e) => setLcUser(e.target.value)} />
-              <Input
-                type="number"
-                className="w-16 text-center"
-                min={1}
-                max={50}
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-              />
-            </div>
-            <Button className="w-full" onClick={() => analysis.fetchGamesFor('lichess', lcUser, limit)}>
-              Fetch games
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="pgn" className="space-y-2.5">
-            <textarea
-              className="h-[104px] w-full resize-none rounded-md border border-transparent bg-secondary/60 p-3 font-mono text-xs outline-none transition-colors focus:border-primary focus:bg-card focus:ring-2 focus:ring-ring"
-              placeholder="Paste PGN here..."
-              value={pgnText}
-              onChange={(e) => setPgnText(e.target.value)}
-              rows={5}
-            />
-            <Button className="w-full" onClick={() => analysis.analyzePgn(pgnText, null)}>
-              Analyze PGN
-            </Button>
-          </TabsContent>
-        </Tabs>
-
-        {/* Engine speed */}
-        <div className="mt-4">
-          <div className="mb-2 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-            Engine speed
-          </div>
-          <div className="flex gap-0.5 rounded-lg bg-muted p-1">
-            {SPEED_PRESETS.map((p) => (
-              <button
-                key={p.depth}
-                onClick={() => updateSetting('engine_depth', p.depth)}
-                className={cn(
-                  'flex-1 rounded-md px-1.5 py-1.5 text-sm font-semibold transition-all',
-                  settings.engine_depth === p.depth
-                    ? 'bg-primary text-primary-foreground shadow'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-1.5 text-[0.72rem] text-muted-foreground">
-            {SPEED_PRESETS.find((p) => p.depth === settings.engine_depth)?.hint ?? ''}
-          </div>
-        </div>
+        <SourceForm analysis={analysis} />
       </div>
 
       {/* Games list */}
@@ -195,7 +207,7 @@ export function SourcesPanel({
   )
 }
 
-function GameItem({ game, selected, onClick }: { game: GameInfo; selected: boolean; onClick: () => void }) {
+export function GameItem({ game, selected, onClick }: { game: GameInfo; selected: boolean; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
