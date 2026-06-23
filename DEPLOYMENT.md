@@ -311,3 +311,54 @@ Then `sudo certbot --nginx -d chess.tomiarb.com` for HTTPS.
 - [ ] `data/` is writable by the service user and **backed up** (it holds all user accounts).
 - [ ] `proxy_buffering off` is set so streaming analysis arrives live.
 - [ ] `ENGINE_THREADS` tuned to the server's CPU.
+
+---
+
+## Troubleshooting
+
+### Jenkins SCM: "Host key verification failed" / "No ED25519 host key is known for github.com"
+The `jenkins` user has never connected to github.com over SSH and Jenkins uses strict host-key
+checking. Fix one:
+- Add the key for the jenkins user:
+  ```bash
+  sudo -u jenkins bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts'
+  ```
+  (verify the line — GitHub's ED25519 fingerprint is `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU`.)
+- Or *Manage Jenkins -> Security -> Git Host Key Verification Configuration* -> **Accept first connection**.
+- Or use an HTTPS repo URL + a PAT credential (no host keys involved).
+
+### `git clone` of the private repo fails on the server
+
+**Why:** the repo is private and no working GitHub auth is set up yet. With SSH, `sudo git clone`
+also runs git as **root**, which ignores *your* user's `~/.ssh` keys and `GIT_SSH_COMMAND` — so even a
+valid key never gets used (you get `Permission denied (publickey)`). HTTPS instead prompts for a
+username/password and a GitHub password won't work.
+
+**Fix (recommended — SSH deploy key, reused as the Jenkins credential):**
+
+1. Add the key's **public** half to GitHub as a read-only **Deploy key**:
+   `cat ~/.ssh/jenkins_fatboy.pub` -> GitHub -> *chess -> Settings -> Deploy keys -> Add deploy key*
+   -> paste -> leave *Allow write access* unchecked -> Add.
+2. Verify (note: **no sudo**):
+   ```bash
+   ssh -i ~/.ssh/jenkins_fatboy -o IdentitiesOnly=yes -T git@github.com
+   # -> Hi abhijeetadarsh/chess! You've successfully authenticated...
+   ```
+3. Clone into `/opt`, passing the key *through* sudo so root can use it:
+   ```bash
+   sudo env GIT_SSH_COMMAND="ssh -i /home/abhijeet/.ssh/jenkins_fatboy -o IdentitiesOnly=yes" \
+     git clone git@github.com:abhijeetadarsh/chess.git /opt/chess-analysis
+   ```
+4. In Jenkins, add the **private** key (`jenkins_fatboy`) as an *SSH Username with private key*
+   credential (username `git`) and select it in the job's SCM config — the same key now serves both.
+
+**Alternative (HTTPS + token):** the clone prompts `Username for 'https://github.com':` — enter your
+GitHub username and a **Personal Access Token** (not your password), or inline it:
+```bash
+git clone https://USERNAME:TOKEN@github.com/abhijeetadarsh/chess.git
+```
+
+### `Permission denied (publickey)` running `ssh-copy-id`/`ssh` to the server itself
+The server allows **public-key auth only** (no password), so `ssh-copy-id` can't log in to install a
+new key. Add your public key to the server's `~/.ssh/authorized_keys` via a path that already works
+(existing key, console/VNC, or your hosting panel).
