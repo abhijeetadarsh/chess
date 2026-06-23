@@ -1,11 +1,11 @@
 name: chess-analysis
-# conda-forge only: avoids the Anaconda 'defaults' channel Terms-of-Service
-# prompt that breaks non-interactive CI (conda env create in Jenkins).
+# OPTIONAL — only for local backend development with conda. The server/CI deploy
+# uses a plain Python venv (see Jenkinsfile), not conda. conda-forge avoids the
+# Anaconda 'defaults' channel Terms-of-Service prompt.
 channels:
   - conda-forge
 dependencies:
   - python=3.12
-  - nodejs=22          # builds the React/Vite frontend (npm) inside the env
   - pip
   - pip:
       - -r requirements.txt

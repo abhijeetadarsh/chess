@@ -272,40 +272,53 @@ install Python deps → restart service → `/health` check.
 
 ---
 
-## 7. CI/CD with Jenkins + conda (active, same-server)
+## 7. CI/CD with Jenkins + venv (active, same-server)
 
-Jenkins runs **on tomiarb.com**, so it deploys locally — no SSH keys/secrets. The pipeline
-(`Jenkinsfile`) builds the conda env (Python **and** Node), builds the frontend, syncs to the
-app dir, and restarts the service. The app runs as the **jenkins** user from a conda **prefix
-env** at `/opt/chess-analysis-env` (so jenkins never writes into abhijeet's home).
+Jenkins runs **on tomiarb.com**, so it deploys locally — no SSH keys/secrets, and no conda. The
+pipeline (`Jenkinsfile`) builds the frontend (Node from the Jenkins NodeJS tool), creates a
+Python **venv**, syncs to `/opt/chess-analysis`, and restarts the systemd service. The app runs
+as the **jenkins** user from `/opt/chess-analysis/.venv`.
 
-**Step 1 — one-time server setup** (as root on tomiarb.com). Copy the repo or just the script
-over, then run it:
+**Step 1 — one-time server setup** (as root on tomiarb.com):
 
 ```bash
+sudo git clone https://github.com/abhijeetadarsh/chess.git /opt/chess-analysis
 sudo bash /opt/chess-analysis/scripts/jenkins-server-setup.sh
-# (or, if conda is elsewhere) CONDA=/path/to/miniconda3 sudo -E bash .../jenkins-server-setup.sh
 ```
 
-This installs Stockfish, creates `/opt/chess-analysis` + `/opt/chess-analysis-env` (owned by
-jenkins), grants jenkins read/exec on the conda install, writes the systemd unit
-(`ExecStart=/opt/chess-analysis-env/bin/uvicorn …`), and gives jenkins a NOPASSWD rule to
+Installs Python + Stockfish, makes `/opt/chess-analysis` jenkins-owned, writes the systemd unit
+(`ExecStart=/opt/chess-analysis/.venv/bin/uvicorn …`), and adds a NOPASSWD rule so jenkins can
 restart only that service.
 
-**Step 2 — create the Jenkins job** at https://jenkins.tomiarb.com:
+**Step 2 — install the NodeJS tool** (gives the build `npm`, no system Node needed):
 
-- *New Item → Pipeline*.
-- **Pipeline → Definition: “Pipeline script from SCM”**, SCM **Git**,
-  Repo `git@github.com:abhijeetadarsh/chess.git`, **Script Path:** `Jenkinsfile`.
-- Add a **credential** Jenkins can use to read the private repo (an SSH key whose public half
-  is added to the repo’s *Deploy keys*, or a GitHub token).
-- (Optional) enable **GitHub hook trigger** / poll SCM so each push to `main` auto-builds.
+- *Manage Jenkins -> Plugins* -> install **NodeJS**.
+- *Manage Jenkins -> Tools -> NodeJS installations* -> **Add NodeJS**, Name **`node22`**, tick
+  *Install automatically*, choose a 22.x version. (The `Jenkinsfile` references `node22`.)
 
-**Step 3 — build.** Click *Build Now*. The first run creates the env at
-`/opt/chess-analysis-env`, deploys, and starts the service. Watch the stage view; the
-**Health check** stage hitting `/health` confirms success.
+**Step 3 — add a credential to read the private repo** (*Manage Jenkins -> Credentials -> Add*):
 
-**Step 4 — nginx** (you already terminate TLS for `jenkins.tomiarb.com`; add a server block
+- **SSH (recommended):** kind *SSH Username with private key*, username `git`, paste a private
+  key whose **public** half is on the repo under *Settings -> Deploy keys* (read-only). Repo URL:
+  `git@github.com:abhijeetadarsh/chess.git`.
+- **or HTTPS:** kind *Username with password*, password = a GitHub **PAT** (repo read). Repo URL:
+  `https://github.com/abhijeetadarsh/chess.git`.
+
+**Step 4 — configure the `chess` job** (the Configure screen):
+
+- **General:** keep *Do not allow concurrent builds* checked; the *GitHub project* URL is fine.
+- **Triggers:** tick **GitHub hook trigger for GITScm polling** for auto-deploy on push (needs a
+  webhook to `https://jenkins.tomiarb.com/github-webhook/`), **or** *Poll SCM* `H/5 * * * *`,
+  **or** leave all unticked for manual builds.
+- **Pipeline -> Definition:** change *Pipeline script* to **"Pipeline script from SCM"**:
+  - **SCM: Git** · **Repository URL** = the one matching your credential · **Credentials** = the
+    one from Step 3 · **Branch Specifier** = `*/main` · **Script Path** = `Jenkinsfile`.
+- **Save.**
+
+**Step 5 — Build Now.** The first run builds the UI, creates `.venv`, deploys, and starts the
+service. The **Health check** stage hitting `/health` confirms success.
+
+**Step 6 — nginx** (you already terminate TLS for `jenkins.tomiarb.com`; add a server block
 for the app, e.g. `chess.tomiarb.com`):
 
 ```nginx
@@ -326,7 +339,7 @@ server {
 ```
 Then `sudo certbot --nginx -d chess.tomiarb.com` for HTTPS.
 
-> Every deploy preserves `data/` (user DB), `stockfish/`, and the env — they're excluded from
+> Every deploy preserves `data/` (user DB), `stockfish/`, and `.venv` — they're excluded from
 > the rsync. To change CPU usage, edit `ENGINE_THREADS` in the systemd unit and
 > `sudo systemctl daemon-reload && sudo systemctl restart chess-analysis`.
 
