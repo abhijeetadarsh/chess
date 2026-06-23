@@ -1,15 +1,11 @@
 name: chess-analysis
+# conda-forge only: avoids the Anaconda 'defaults' channel Terms-of-Service
+# prompt that breaks non-interactive CI (conda env create in Jenkins).
 channels:
-  - defaults
+  - conda-forge
 dependencies:
   - python=3.12
+  - nodejs=22          # builds the React/Vite frontend (npm) inside the env
   - pip
   - pip:
-      - fastapi==0.115.0
-      - uvicorn[standard]==0.30.6
-      - python-chess==1.999
-      - stockfish==3.28.0
-      - httpx==0.27.2
-      - python-multipart==0.0.9
-      - pydantic>=2.9.2
-      - cachetools==5.5.0
+      - -r requirements.txt
