@@ -44,6 +44,7 @@ def init_db():
                 default_games       INTEGER DEFAULT 10,
                 default_source      TEXT    DEFAULT 'chesscom',
                 sound_enabled       INTEGER DEFAULT 1,
+                sound_style         TEXT    DEFAULT 'wood',
                 ui_theme            TEXT    DEFAULT 'light',
                 board_theme         TEXT    DEFAULT 'green',
                 piece_set           TEXT    DEFAULT 'cburnett',
@@ -58,6 +59,10 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
         """)
+        # Migrations: add columns introduced after a DB was first created.
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(user_settings)")}
+        if "sound_style" not in cols:
+            conn.execute("ALTER TABLE user_settings ADD COLUMN sound_style TEXT DEFAULT 'wood'")
 
 
 # ── Password hashing ──────────────────────────────────────────────────────────
@@ -141,7 +146,7 @@ def get_settings(user_id: int) -> dict:
 def save_settings(user_id: int, data: dict):
     allowed = {
         "chesscom_username", "lichess_username", "default_games", "default_source",
-        "sound_enabled", "ui_theme", "board_theme", "piece_set", "engine_depth",
+        "sound_enabled", "sound_style", "ui_theme", "board_theme", "piece_set", "engine_depth",
     }
     fields = {k: v for k, v in data.items() if k in allowed}
     if not fields:

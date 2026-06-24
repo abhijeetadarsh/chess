@@ -7,7 +7,7 @@ import { BOARD_THEMES, PIECE_CODES, pieceUrl } from '@/lib/chess-assets'
 import { cn } from '@/lib/utils'
 import { EvalBar } from './EvalBar'
 
-const EVAL_BAR_SPACE = 36 // eval bar width (28) + gap (8)
+const EVAL_BAR_SPACE = 28 // eval bar width (20) + gap (8)
 
 /** Arrow keys step through moves; `f` flips the board. Shared by both layouts. */
 export function useBoardKeyboardNav(analysis: UseAnalysis) {
@@ -134,7 +134,7 @@ export function BoardView({
             customLightSquareStyle={{ backgroundColor: light }}
             customDarkSquareStyle={{ backgroundColor: dark }}
             customSquareStyles={highlightStyles}
-            animationDuration={260}
+            animationDuration={analysis.animationMs}
             arePiecesDraggable
           />
         </div>

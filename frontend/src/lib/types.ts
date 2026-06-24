@@ -92,6 +92,7 @@ export interface UserSettings {
   default_games: number
   default_source: string
   sound_enabled: number
+  sound_style: string
   ui_theme: string
   board_theme: string
   piece_set: string

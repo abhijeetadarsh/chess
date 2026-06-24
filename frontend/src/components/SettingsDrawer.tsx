@@ -1,7 +1,8 @@
 import { useState } from 'react'
 
 import { useAuth } from '@/hooks/useAuth'
-import { BOARD_THEMES, PIECE_SETS, SPEED_PRESETS, UI_THEMES, pieceUrl } from '@/lib/chess-assets'
+import { BOARD_THEMES, PIECE_SETS, SOUND_OPTIONS, SPEED_PRESETS, UI_THEMES, pieceUrl } from '@/lib/chess-assets'
+import { previewMoveSound } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -226,6 +227,35 @@ export function SettingsDrawer({ open, onOpenChange }: { open: boolean; onOpenCh
                 checked={!!settings.sound_enabled}
                 onCheckedChange={(v) => updateSetting('sound_enabled', v ? 1 : 0)}
               />
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <Label className="text-xs text-muted-foreground">Sound Style</Label>
+              <Select
+                value={settings.sound_style}
+                onValueChange={(v) => {
+                  updateSetting('sound_style', v)
+                  previewMoveSound(v) // play a one-shot preview so the choice is audible
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SOUND_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => previewMoveSound(settings.sound_style)}
+                className="text-[0.72rem] font-medium text-primary hover:underline"
+              >
+                ▶ Play preview
+              </button>
             </div>
           </div>
         </div>

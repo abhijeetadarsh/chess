@@ -48,6 +48,14 @@ export const SPEED_PRESETS: SpeedPreset[] = [
   { depth: 18, label: 'Deep', hint: 'Deep · depth 18 — strongest, can take a few minutes' },
 ]
 
+export const SOUND_OPTIONS: { value: string; label: string }[] = [
+  { value: 'wood', label: 'Wood' },
+  { value: 'soft', label: 'Soft' },
+  { value: 'click', label: 'Click' },
+  { value: 'marble', label: 'Marble' },
+  { value: 'glass', label: 'Glass' },
+]
+
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 export const CLASS_ICON: Record<string, string> = {
