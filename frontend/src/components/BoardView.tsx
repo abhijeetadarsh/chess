@@ -2,12 +2,17 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Chessboard } from 'react-chessboard'
 
 import { useAuth } from '@/hooks/useAuth'
-import type { UseAnalysis } from '@/hooks/useAnalysis'
+import type { EvalInfo, UseAnalysis } from '@/hooks/useAnalysis'
 import { BOARD_THEMES, PIECE_CODES, pieceUrl } from '@/lib/chess-assets'
 import { cn } from '@/lib/utils'
 import { EvalBar } from './EvalBar'
 
 const EVAL_BAR_SPACE = 28 // eval bar width (20) + gap (8)
+
+export interface BoardHighlight {
+  from: string
+  to: string
+}
 
 /** Arrow keys step through moves; `f` flips the board. Shared by both layouts. */
 export function useBoardKeyboardNav(analysis: UseAnalysis) {
@@ -31,14 +36,26 @@ export function useBoardKeyboardNav(analysis: UseAnalysis) {
  * the sizing logic and piece/theme rendering never diverge between the two.
  */
 export function BoardView({
-  analysis,
+  fen,
+  orientation,
+  onPieceDrop,
+  highlight,
+  evalInfo,
+  animationMs = 260,
+  draggable = true,
   maxSize = 1100,
   className,
   widthDriven = false,
   heightVh = 0.6,
   active = true,
 }: {
-  analysis: UseAnalysis
+  fen: string
+  orientation: 'white' | 'black'
+  onPieceDrop: (source: string, target: string) => boolean
+  highlight: BoardHighlight | null
+  evalInfo: EvalInfo
+  animationMs?: number
+  draggable?: boolean
   maxSize?: number
   className?: string
   /**
@@ -105,12 +122,12 @@ export function BoardView({
   }, [settings.piece_set])
 
   const highlightStyles = useMemo(() => {
-    if (!analysis.highlight) return {}
+    if (!highlight) return {}
     return {
-      [analysis.highlight.from]: { boxShadow: 'inset 0 0 0 4px rgba(255,199,0,.45)' },
-      [analysis.highlight.to]: { boxShadow: 'inset 0 0 0 4px rgba(0,113,227,.5)' },
+      [highlight.from]: { boxShadow: 'inset 0 0 0 4px rgba(255,199,0,.45)' },
+      [highlight.to]: { boxShadow: 'inset 0 0 0 4px rgba(0,113,227,.5)' },
     }
-  }, [analysis.highlight])
+  }, [highlight])
 
   return (
     <div
@@ -122,20 +139,20 @@ export function BoardView({
       )}
     >
       <div className="flex items-stretch gap-2" style={{ height: boardSize, width: boardSize + EVAL_BAR_SPACE }}>
-        <EvalBar evalInfo={analysis.evalInfo} orientation={analysis.orientation} />
+        <EvalBar evalInfo={evalInfo} orientation={orientation} />
         <div className="overflow-hidden rounded-md shadow" style={{ width: boardSize, height: boardSize }}>
           <Chessboard
             id="board"
-            position={analysis.currentFen}
-            boardOrientation={analysis.orientation}
+            position={fen}
+            boardOrientation={orientation}
             boardWidth={boardSize}
-            onPieceDrop={(s, t) => analysis.onPieceDrop(s, t)}
+            onPieceDrop={(s, t) => onPieceDrop(s, t)}
             customPieces={customPieces}
             customLightSquareStyle={{ backgroundColor: light }}
             customDarkSquareStyle={{ backgroundColor: dark }}
             customSquareStyles={highlightStyles}
-            animationDuration={analysis.animationMs}
-            arePiecesDraggable
+            animationDuration={animationMs}
+            arePiecesDraggable={draggable}
           />
         </div>
       </div>

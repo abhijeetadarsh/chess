@@ -8,6 +8,7 @@ import { SourcesPanel } from '@/components/SourcesPanel'
 import { BoardPanel } from '@/components/BoardPanel'
 import { AnalysisPanel } from '@/components/AnalysisPanel'
 import { MobileLayout } from '@/components/MobileLayout'
+import { PlayScreen } from '@/components/PlayScreen'
 import { SettingsDrawer } from '@/components/SettingsDrawer'
 
 function usePersistentToggle(key: string) {
@@ -23,6 +24,7 @@ function usePersistentToggle(key: string) {
 function MainApp() {
   const analysis = useAnalysis()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [mode, setMode] = useState<'analyze' | 'play'>('analyze')
   const [sourcesCollapsed, toggleSources] = usePersistentToggle('ca_sources_col')
   const [analysisCollapsed, toggleAnalysis] = usePersistentToggle('ca_analysis_col')
   // Desktop-first: when the width is reported as 0 (some embedded renderers do
@@ -46,6 +48,8 @@ function MainApp() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  if (mode === 'play') return <PlayScreen onClose={() => setMode('analyze')} />
+
   return (
     <>
       <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
@@ -63,6 +67,7 @@ function MainApp() {
             collapsed={sourcesCollapsed}
             onToggleCollapse={toggleSources}
             onOpenSettings={() => setSettingsOpen(true)}
+            onPlayBot={() => setMode('play')}
           />
           <BoardPanel analysis={analysis} />
           <AnalysisPanel
@@ -72,7 +77,11 @@ function MainApp() {
           />
         </div>
       ) : (
-        <MobileLayout analysis={analysis} onOpenSettings={() => setSettingsOpen(true)} />
+        <MobileLayout
+          analysis={analysis}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onPlayBot={() => setMode('play')}
+        />
       )}
     </>
   )

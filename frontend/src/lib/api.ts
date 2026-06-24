@@ -1,8 +1,10 @@
 import type {
   AuthResponse,
   AuthUser,
+  BotMoveResult,
   EvalResult,
   GameInfo,
+  PlayMoveResult,
   StreamEvent,
   UserSettings,
 } from './types'
@@ -80,6 +82,33 @@ export async function fetchGames(
   if (!r.ok) return asError(r)
   const data = await r.json()
   return data.games
+}
+
+// ── Play vs bot ────────────────────────────────────────────────────────────────
+
+export async function playMove(
+  fen: string,
+  uci: string,
+  elo: number,
+  depth: number,
+): Promise<PlayMoveResult> {
+  const r = await fetch('/play/move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fen, uci, elo, depth }),
+  })
+  if (!r.ok) return asError(r)
+  return r.json()
+}
+
+export async function botMove(fen: string, elo: number): Promise<BotMoveResult> {
+  const r = await fetch('/play/bot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fen, elo }),
+  })
+  if (!r.ok) return asError(r)
+  return r.json()
 }
 
 export async function evaluateFen(fen: string, depth = 12): Promise<EvalResult> {

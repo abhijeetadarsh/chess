@@ -23,7 +23,14 @@ export function BoardPanel({ analysis }: { analysis: UseAnalysis }) {
     <div className="flex min-h-0 flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card p-3">
         {/* Board + eval bar — fills all remaining vertical space */}
-        <BoardView analysis={analysis} />
+        <BoardView
+          fen={analysis.currentFen}
+          orientation={analysis.orientation}
+          onPieceDrop={analysis.onPieceDrop}
+          highlight={analysis.highlight}
+          evalInfo={analysis.evalInfo}
+          animationMs={analysis.animationMs}
+        />
 
         {/* Controls — fixed height */}
         <div className="mt-2 flex flex-shrink-0 items-center justify-center gap-2">

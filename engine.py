@@ -421,6 +421,221 @@ def evaluate_fen(fen: str, depth: int = EVAL_DEPTH) -> dict:
         }
 
 
+# ──────────────────────────────────────────────────────────────
+# Play vs bot — Stockfish at a chosen Elo, with per-move feedback
+# ──────────────────────────────────────────────────────────────
+MIN_BOT_ELO = 400
+MAX_BOT_ELO = 3000
+# Stockfish's UCI_Elo only goes down to ~1320; below that we weaken it with the
+# Skill Level option instead (0 = very weak … 20 = full strength).
+_UCI_ELO_FLOOR = 1320
+
+
+def _configure_strength(engine: chess.engine.SimpleEngine, elo: int):
+    elo = max(MIN_BOT_ELO, min(int(elo), MAX_BOT_ELO))
+    try:
+        if elo >= _UCI_ELO_FLOOR:
+            engine.configure({"UCI_LimitStrength": True, "UCI_Elo": elo, "Skill Level": 20})
+        else:
+            skill = round((elo - MIN_BOT_ELO) / (_UCI_ELO_FLOOR - MIN_BOT_ELO) * 19)
+            engine.configure({"UCI_LimitStrength": False, "Skill Level": max(0, min(20, skill))})
+    except Exception:
+        pass  # some engine builds lack these options — fall back to full strength
+
+
+def _reset_strength(engine: chess.engine.SimpleEngine):
+    """Return a pooled engine to full strength so later analysis is unaffected."""
+    try:
+        engine.configure({"UCI_LimitStrength": False, "Skill Level": 20})
+    except Exception:
+        pass
+
+
+def _game_status(board: chess.Board) -> dict:
+    if not board.is_game_over(claim_draw=True):
+        return {"over": False, "result": None, "reason": None, "winner": None}
+    result = board.result(claim_draw=True)
+    if board.is_checkmate():
+        reason = "checkmate"
+    elif board.is_stalemate():
+        reason = "stalemate"
+    elif board.is_insufficient_material():
+        reason = "insufficient material"
+    elif board.is_seventyfive_moves() or board.can_claim_fifty_moves():
+        reason = "fifty-move rule"
+    elif board.is_fivefold_repetition() or board.can_claim_threefold_repetition():
+        reason = "repetition"
+    else:
+        reason = "draw"
+    winner = "white" if result == "1-0" else "black" if result == "0-1" else None
+    return {"over": True, "result": result, "reason": reason, "winner": winner}
+
+
+def _bot_reply(engine: chess.engine.SimpleEngine, board: chess.Board, elo: int) -> Optional[dict]:
+    """Have Stockfish (limited to `elo`) play one move on `board` (mutates it)."""
+    _configure_strength(engine, elo)
+    try:
+        result = engine.play(board, chess.engine.Limit(depth=16, time=1.0))
+    finally:
+        _reset_strength(engine)
+    move = result.move
+    if move is None or move not in board.legal_moves:
+        return None
+    san = board.san(move)
+    info = {
+        "san": san,
+        "uci": move.uci(),
+        "from": chess.square_name(move.from_square),
+        "to": chess.square_name(move.to_square),
+    }
+    board.push(move)
+    info["fen"] = board.fen()
+    return info
+
+
+def _current_eval(engine: chess.engine.SimpleEngine, board: chess.Board) -> int:
+    """White-relative cp for `board` (terminal-aware, light depth for the eval bar)."""
+    if board.is_game_over(claim_draw=True):
+        return _terminal_white_cp(board)
+    info = engine.analyse(board, chess.engine.Limit(depth=EVAL_DEPTH, time=ANALYSIS_TIMEOUT), multipv=1)
+    entry = info[0] if isinstance(info, list) else info
+    return _white_cp(entry["score"])
+
+
+def play_and_feedback(
+    fen: str, uci: str, elo: int, depth: int = DEFAULT_DEPTH, top_moves: int = TOP_MOVES,
+) -> dict:
+    """Score the user's move (same logic as analysis), then play the bot's reply.
+
+    Returns the move feedback, the bot's reply (or None), the resulting position
+    and its eval. Raises ValueError for bad input, RuntimeError if Stockfish is missing.
+    """
+    depth = max(1, min(depth, MAX_DEPTH))
+    try:
+        board = chess.Board(fen)
+    except ValueError as e:
+        raise ValueError(f"Invalid FEN: {e}")
+    if board.is_game_over(claim_draw=True):
+        raise ValueError("The game is already over.")
+    try:
+        move = chess.Move.from_uci(uci)
+    except ValueError:
+        raise ValueError(f"Invalid move: {uci}")
+    if move not in board.legal_moves:
+        raise ValueError(f"Illegal move: {uci}")
+
+    mover = board.turn
+    sign = 1 if mover == chess.WHITE else -1
+    color = "white" if mover == chess.WHITE else "black"
+    move_number = board.fullmove_number
+    n_legal = board.legal_moves.count()
+    san = board.san(move)
+    from_sq = chess.square_name(move.from_square)
+    to_sq = chess.square_name(move.to_square)
+
+    with _POOL.get() as engine:
+        limit = chess.engine.Limit(depth=depth, time=ANALYSIS_TIMEOUT)
+
+        # 1) Best line(s) from the pre-move position (full strength).
+        infos = engine.analyse(board, limit, multipv=top_moves)
+        infos = infos if isinstance(infos, list) else [infos]
+        best_white_cp = _white_cp(infos[0]["score"])
+        best_mover = sign * best_white_cp
+        second_mover = sign * _white_cp(infos[1]["score"]) if len(infos) > 1 else best_mover
+        gap_to_second = best_mover - second_mover
+
+        alternatives = []
+        for entry in infos[:top_moves]:
+            pv = entry.get("pv")
+            if not pv:
+                continue
+            cand = pv[0]
+            cand_white = _white_cp(entry["score"])
+            alternatives.append({
+                "san": board.san(cand),
+                "uci": cand.uci(),
+                "eval": _cp_to_pawns(cand_white),
+                "mate": _mate_in(cand_white),
+                "is_played": cand == move,
+            })
+        best_san = alternatives[0]["san"] if alternatives else san
+        sacrifice = _is_sacrifice(board, move)
+        win_before = _win_percent(best_mover)
+
+        # 2) Evaluate the position after the user's move.
+        board.push(move)
+        user_fen = board.fen()
+        status = _game_status(board)
+        if status["over"]:
+            next_white_cp = _terminal_white_cp(board)
+        else:
+            ne = engine.analyse(board, limit, multipv=1)
+            ne = ne if isinstance(ne, list) else [ne]
+            next_white_cp = _white_cp(ne[0]["score"])
+
+        played_mover = sign * next_white_cp
+        cp_loss = max(0.0, best_mover - played_mover)
+        move_acc = _move_accuracy(win_before, _win_percent(played_mover))
+        cls = classify(
+            cp_loss, is_sacrifice=sacrifice, gap_to_second=gap_to_second,
+            eval_after_mover=played_mover, n_legal=n_legal,
+        )
+        mover_mate = _mate_in(int(played_mover))
+        feedback = {
+            "move_number": move_number, "color": color, "san": san, "uci": uci,
+            "from": from_sq, "to": to_sq, "fen": user_fen,
+            "classification": cls, "cp_loss": round(min(cp_loss, 2000), 0),
+            "eval": _cp_to_pawns(next_white_cp), "mate_in": _mate_in(next_white_cp),
+            "accuracy": round(move_acc, 1), "best_move": best_san,
+            "alternatives": alternatives,
+            "explanation": _explain(cls, san, best_san, cp_loss, mover_mate),
+        }
+
+        # 3) Bot reply (Elo-limited), then a light eval of the new position.
+        bot = None if status["over"] else _bot_reply(engine, board, elo)
+        if bot is not None:
+            status = _game_status(board)
+        cur_white_cp = _current_eval(engine, board)
+
+    return {
+        "feedback": feedback,
+        "bot": bot,
+        "fen": board.fen(),
+        "eval": _cp_to_pawns(cur_white_cp),
+        "mate": _mate_in(cur_white_cp),
+        "turn": "white" if board.turn == chess.WHITE else "black",
+        "game_over": status["over"],
+        "result": status["result"],
+        "reason": status["reason"],
+        "winner": status["winner"],
+    }
+
+
+def bot_move(fen: str, elo: int) -> dict:
+    """Just play the bot's move from `fen` (used for its opening move as White)."""
+    try:
+        board = chess.Board(fen)
+    except ValueError as e:
+        raise ValueError(f"Invalid FEN: {e}")
+    status = _game_status(board)
+    with _POOL.get() as engine:
+        bot = None if status["over"] else _bot_reply(engine, board, elo)
+        if bot is not None:
+            status = _game_status(board)
+        cur_white_cp = _current_eval(engine, board)
+    return {
+        "bot": bot,
+        "fen": board.fen(),
+        "eval": _cp_to_pawns(cur_white_cp),
+        "mate": _mate_in(cur_white_cp),
+        "turn": "white" if board.turn == chess.WHITE else "black",
+        "game_over": status["over"],
+        "result": status["result"],
+        "reason": status["reason"],
+        "winner": status["winner"],
+    }
+
+
 def _summarise(class_log: list[tuple[str, str]]) -> dict:
     classes = ["brilliant", "great", "best", "good", "inaccuracy", "mistake", "blunder", "critical_blunder"]
     out: dict[str, dict[str, int]] = {}

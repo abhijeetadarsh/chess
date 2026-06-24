@@ -86,6 +86,40 @@ export interface EvalResult {
   game_over: boolean
 }
 
+// ── Play vs bot ────────────────────────────────────────────────────────────────
+export interface BotMove {
+  san: string
+  uci: string
+  from: string
+  to: string
+  fen: string
+}
+
+export interface PlayMoveResult {
+  feedback: MoveData // the user's move, scored like an analysed move
+  bot: BotMove | null
+  fen: string
+  eval: number
+  mate: number | null
+  turn: 'white' | 'black'
+  game_over: boolean
+  result: string | null
+  reason: string | null
+  winner: 'white' | 'black' | null
+}
+
+export interface BotMoveResult {
+  bot: BotMove | null
+  fen: string
+  eval: number
+  mate: number | null
+  turn: 'white' | 'black'
+  game_over: boolean
+  result: string | null
+  reason: string | null
+  winner: 'white' | 'black' | null
+}
+
 export interface UserSettings {
   chesscom_username: string
   lichess_username: string
