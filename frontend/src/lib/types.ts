@@ -127,6 +127,7 @@ export interface UserSettings {
   default_source: string
   sound_enabled: number
   sound_style: string
+  tap_to_move: number
   ui_theme: string
   board_theme: string
   piece_set: string
