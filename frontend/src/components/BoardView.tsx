@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Chess, type Square } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 
 import { useAuth } from '@/hooks/useAuth'
@@ -122,12 +123,74 @@ export function BoardView({
   }, [settings.piece_set])
 
   const highlightStyles = useMemo(() => {
-    if (!highlight) return {}
-    return {
-      [highlight.from]: { boxShadow: 'inset 0 0 0 4px rgba(255,199,0,.45)' },
-      [highlight.to]: { boxShadow: 'inset 0 0 0 4px rgba(0,113,227,.5)' },
+    const s: Record<string, CSSProperties> = {}
+    if (highlight) {
+      s[highlight.from] = { boxShadow: 'inset 0 0 0 4px rgba(255,199,0,.45)' }
+      s[highlight.to] = { boxShadow: 'inset 0 0 0 4px rgba(0,113,227,.5)' }
     }
+    return s
   }, [highlight])
+
+  // ── Tap-to-move ──────────────────────────────────────────────────────────
+  const tapMove = !!settings.tap_to_move
+  const interactive = draggable // both drag and tap are blocked when this is false
+  const [selected, setSelected] = useState<string | null>(null)
+
+  // Clear any selection whenever the position changes (a move was made/navigated)
+  // or tap-to-move is switched off.
+  useEffect(() => setSelected(null), [fen, tapMove])
+
+  const legalTargets = useMemo(() => {
+    const map = new Map<string, boolean>() // square -> isCapture
+    if (!tapMove || !selected) return map
+    try {
+      const game = new Chess(fen)
+      for (const m of game.moves({ square: selected as Square, verbose: true })) {
+        map.set(m.to, !!m.captured || m.flags.includes('e'))
+      }
+    } catch {
+      /* invalid fen / square */
+    }
+    return map
+  }, [tapMove, selected, fen])
+
+  const handleSquareClick = (square: string) => {
+    if (!tapMove || !interactive) return
+    if (selected === square) {
+      setSelected(null)
+      return
+    }
+    if (selected && legalTargets.has(square)) {
+      onPieceDrop(selected, square)
+      setSelected(null)
+      return
+    }
+    try {
+      const game = new Chess(fen)
+      const piece = game.get(square as Square)
+      setSelected(piece && piece.color === game.turn() ? square : null)
+    } catch {
+      setSelected(null)
+    }
+  }
+
+  const squareStyles = useMemo(() => {
+    if (!tapMove || !selected) return highlightStyles
+    const merged: Record<string, CSSProperties> = { ...highlightStyles }
+    const add = (sq: string, style: CSSProperties) => {
+      merged[sq] = { ...(merged[sq] ?? {}), ...style }
+    }
+    add(selected, { background: 'rgba(255,199,0,.42)' })
+    for (const [sq, isCapture] of legalTargets) {
+      add(
+        sq,
+        isCapture
+          ? { background: 'radial-gradient(circle, transparent 52%, rgba(0,0,0,.22) 54%, rgba(0,0,0,.22) 62%, transparent 64%)' }
+          : { background: 'radial-gradient(circle, rgba(0,0,0,.24) 0 19%, transparent 21%)' },
+      )
+    }
+    return merged
+  }, [tapMove, selected, legalTargets, highlightStyles])
 
   return (
     <div
@@ -147,12 +210,13 @@ export function BoardView({
             boardOrientation={orientation}
             boardWidth={boardSize}
             onPieceDrop={(s, t) => onPieceDrop(s, t)}
+            onSquareClick={handleSquareClick}
             customPieces={customPieces}
             customLightSquareStyle={{ backgroundColor: light }}
             customDarkSquareStyle={{ backgroundColor: dark }}
-            customSquareStyles={highlightStyles}
+            customSquareStyles={squareStyles}
             animationDuration={animationMs}
-            arePiecesDraggable={draggable}
+            arePiecesDraggable={draggable && !tapMove}
           />
         </div>
       </div>

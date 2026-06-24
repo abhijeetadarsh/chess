@@ -209,6 +209,19 @@ export function SettingsDrawer({ open, onOpenChange }: { open: boolean; onOpenCh
                 <img src={pieceUrl(settings.piece_set, 'wN')} alt="" width={36} height={36} />
               </div>
             </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">Tap to move</div>
+                <div className="mt-0.5 text-[0.73rem] text-muted-foreground">
+                  Tap a piece to see its moves, tap a square to move (turns off dragging)
+                </div>
+              </div>
+              <Switch
+                checked={!!settings.tap_to_move}
+                onCheckedChange={(v) => updateSetting('tap_to_move', v ? 1 : 0)}
+              />
+            </div>
           </div>
 
           <Separator className="my-5" />
