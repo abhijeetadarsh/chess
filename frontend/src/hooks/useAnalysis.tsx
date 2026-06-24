@@ -39,6 +39,7 @@ export interface UseAnalysis {
   evalInfo: EvalInfo
   exploreHint: string
   highlight: Highlight | null
+  animationMs: number
   selectedGameIndex: number
   fetchGamesFor: (source: 'chesscom' | 'lichess', username: string, limit: number) => Promise<void>
   analyzePgn: (pgn: string, gameInfo?: GameInfo | null) => Promise<void>
@@ -70,6 +71,9 @@ export function useAnalysis(): UseAnalysis {
   const [evalInfo, setEvalInfo] = useState<EvalInfo>({ eval: 0, mate: null })
   const [exploreHint, setExploreHint] = useState('Drag pieces to test moves')
   const [highlight, setHighlight] = useState<Highlight | null>(null)
+  // Board animation length. Single-ply steps glide (260ms); non-adjacent jumps
+  // snap (0ms) so the board never morphs several pieces at once.
+  const [animationMs, setAnimationMs] = useState(260)
 
   const exploreChessRef = useRef<Chess | null>(null)
   const exploreReturnRef = useRef(-1)
@@ -77,10 +81,12 @@ export function useAnalysis(): UseAnalysis {
   const evalTimerRef = useRef<number | undefined>(undefined)
   const abortRef = useRef<AbortController | null>(null)
   const movesRef = useRef<MoveData[]>([])
+  const currentIndexRef = useRef(currentIndex)
   const streamingRef = useRef(false)
 
   // keep refs that callbacks rely on in sync
   movesRef.current = moves
+  currentIndexRef.current = currentIndex
 
   const requestEval = useCallback((fen: string) => {
     window.clearTimeout(evalTimerRef.current)
@@ -117,6 +123,9 @@ export function useAnalysis(): UseAnalysis {
 
   const goToMove = useCallback(
     (index: number) => {
+      // Glide for a single forward/back step; snap for any bigger jump so the
+      // board doesn't animate several pieces between unrelated positions.
+      setAnimationMs(Math.abs(index - currentIndexRef.current) === 1 ? 260 : 0)
       exploreChessRef.current = null
       setExploring(false)
       setCurrentIndex((prev) => {
@@ -126,7 +135,8 @@ export function useAnalysis(): UseAnalysis {
         if (index >= 0 && list[index]) {
           setHighlight({ from: list[index].from, to: list[index].to })
           setEvalInfo({ eval: list[index].eval, mate: list[index].mate_in })
-          if (index !== prev) playMoveSound(list[index].san.includes('x'), !!settings.sound_enabled)
+          if (index !== prev)
+            playMoveSound(list[index].san.includes('x'), !!settings.sound_enabled, settings.sound_style)
         } else {
           setHighlight(null)
           setEvalInfo({ eval: 0, mate: null })
@@ -134,7 +144,7 @@ export function useAnalysis(): UseAnalysis {
         return index
       })
     },
-    [settings.sound_enabled],
+    [settings.sound_enabled, settings.sound_style],
   )
 
   const flip = useCallback(() => {
@@ -153,15 +163,16 @@ export function useAnalysis(): UseAnalysis {
       if (!move) return false
       exploreChessRef.current = chess
       const fen = chess.fen()
+      setAnimationMs(260) // a hand-played move is always a single glide
       setCurrentFen(fen)
       if (!exploring) enterExplore(currentIndex)
       setHighlight({ from: move.from, to: move.to })
-      playMoveSound(!!move.captured, !!settings.sound_enabled)
+      playMoveSound(!!move.captured, !!settings.sound_enabled, settings.sound_style)
       requestEval(fen)
       setStatus(`Testing: ${move.san}`)
       return true
     },
-    [currentFen, exploring, currentIndex, enterExplore, requestEval, settings.sound_enabled],
+    [currentFen, exploring, currentIndex, enterExplore, requestEval, settings.sound_enabled, settings.sound_style],
   )
 
   const playAlternative = useCallback(
@@ -184,13 +195,23 @@ export function useAnalysis(): UseAnalysis {
       exploreChessRef.current = chess
       const fen = chess.fen()
       enterExplore(index)
-      setCurrentFen(fen)
-      setHighlight({ from: move.from, to: move.to })
-      playMoveSound(!!move.captured, !!settings.sound_enabled)
-      requestEval(fen)
-      setStatus(`Trying engine move: ${move.san}`)
+      // The board is showing the position *after* the played move, but the
+      // alternative branches from *before* it — a 2-move gap that would animate
+      // several pieces at once. Snap to the pre-move position (no animation),
+      // then on the next frame animate just the one alternative move.
+      setAnimationMs(0)
+      setCurrentFen(beforeFen)
+      setHighlight(null)
+      requestAnimationFrame(() => {
+        setAnimationMs(260)
+        setCurrentFen(fen)
+        setHighlight({ from: move.from, to: move.to })
+        playMoveSound(!!move.captured, !!settings.sound_enabled, settings.sound_style)
+        requestEval(fen)
+        setStatus(`Trying engine move: ${move.san}`)
+      })
     },
-    [enterExplore, requestEval, settings.sound_enabled],
+    [enterExplore, requestEval, settings.sound_enabled, settings.sound_style],
   )
 
   const backToGame = useCallback(() => {
@@ -310,6 +331,7 @@ export function useAnalysis(): UseAnalysis {
     evalInfo,
     exploreHint,
     highlight,
+    animationMs,
     selectedGameIndex,
     fetchGamesFor,
     analyzePgn,

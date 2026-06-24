@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   default_games: 10,
   default_source: 'chesscom',
   sound_enabled: 1,
+  sound_style: 'wood',
   ui_theme: 'light',
   board_theme: 'green',
   piece_set: 'cburnett',
@@ -29,6 +30,7 @@ function loadLocalSettings(): UserSettings {
     board_theme: localStorage.getItem('ca_board') || DEFAULT_SETTINGS.board_theme,
     piece_set: localStorage.getItem('ca_pieces') || DEFAULT_SETTINGS.piece_set,
     sound_enabled: localStorage.getItem('ca_sound') === 'off' ? 0 : 1,
+    sound_style: localStorage.getItem('ca_sound_style') || DEFAULT_SETTINGS.sound_style,
   }
 }
 
@@ -36,6 +38,7 @@ const LOCAL_KEYS: Partial<Record<keyof UserSettings, string>> = {
   ui_theme: 'ca_ui',
   board_theme: 'ca_board',
   piece_set: 'ca_pieces',
+  sound_style: 'ca_sound_style',
 }
 
 interface AuthContextValue {
