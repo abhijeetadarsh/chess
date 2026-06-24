@@ -13,7 +13,15 @@ from cachetools import TTLCache
 
 import auth as _auth
 from config import DEFAULT_DEPTH, MAX_DEPTH, STOCKFISH_PATH
-from engine import analyze_game, evaluate_fen, iter_analysis
+from engine import (
+    MAX_BOT_ELO,
+    MIN_BOT_ELO,
+    analyze_game,
+    bot_move,
+    evaluate_fen,
+    iter_analysis,
+    play_and_feedback,
+)
 from fetcher import fetch_chesscom_games, fetch_lichess_games
 
 app = FastAPI(
@@ -119,6 +127,18 @@ class GameFetchResponse(BaseModel):
 class EvalRequest(BaseModel):
     fen: str = Field(..., description="FEN of the position to evaluate")
     depth: int = Field(14, ge=1, le=MAX_DEPTH)
+
+
+class PlayMoveRequest(BaseModel):
+    fen: str = Field(..., description="FEN before the user's move")
+    uci: str = Field(..., description="The user's move in UCI (e.g. e2e4, e7e8q)")
+    elo: int = Field(1500, ge=MIN_BOT_ELO, le=MAX_BOT_ELO)
+    depth: int = Field(DEFAULT_DEPTH, ge=1, le=MAX_DEPTH)
+
+
+class BotMoveRequest(BaseModel):
+    fen: str = Field(..., description="FEN of the position for the bot to move in")
+    elo: int = Field(1500, ge=MIN_BOT_ELO, le=MAX_BOT_ELO)
 
 
 def _clamp_depth(depth: int) -> int:
@@ -229,6 +249,40 @@ async def evaluate_position(request: EvalRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {e}")
+
+
+# ──────────────────────────────────────────────────────────────
+# Play vs bot
+# ──────────────────────────────────────────────────────────────
+@app.post("/play/move", tags=["Play"])
+async def play_user_move(request: PlayMoveRequest):
+    """Score the user's move (like analysis) and return the bot's Elo-limited reply."""
+    depth = _clamp_depth(request.depth)
+    try:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, play_and_feedback, request.fen, request.uci, request.elo, depth
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Play failed: {e}")
+
+
+@app.post("/play/bot", tags=["Play"])
+async def play_bot_move(request: BotMoveRequest):
+    """Play just the bot's move (used for its opening move when the user is Black)."""
+    try:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, bot_move, request.fen, request.elo)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bot move failed: {e}")
 
 
 @app.post("/analyze/game", tags=["Analysis"])

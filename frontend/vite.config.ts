@@ -5,7 +5,7 @@ import { fileURLToPath, URL } from 'node:url'
 // During `npm run dev`, proxy the API routes to the FastAPI backend on :8000.
 // In production the same FastAPI process serves the built SPA, so these paths
 // resolve same-origin and no proxy is involved.
-const API_ROUTES = ['/games', '/analyze', '/evaluate', '/auth', '/health']
+const API_ROUTES = ['/games', '/analyze', '/evaluate', '/play', '/auth', '/health']
 
 export default defineConfig({
   plugins: [react()],

@@ -33,9 +33,11 @@ type MobileTab = 'board' | 'moves' | 'games'
 export function MobileLayout({
   analysis,
   onOpenSettings,
+  onPlayBot,
 }: {
   analysis: UseAnalysis
   onOpenSettings: () => void
+  onPlayBot?: () => void
 }) {
   useBoardKeyboardNav(analysis)
   const [tab, setTab] = useState<MobileTab>('games')
@@ -102,7 +104,18 @@ export function MobileLayout({
             card below never resizes it as you step through moves. */}
         <div className={cn('flex h-full flex-col', tab !== 'board' && 'hidden')}>
           <div className="flex-shrink-0 px-2 pt-3">
-            <BoardView analysis={analysis} maxSize={680} widthDriven heightVh={0.58} active={tab === 'board'} />
+            <BoardView
+              fen={analysis.currentFen}
+              orientation={analysis.orientation}
+              onPieceDrop={analysis.onPieceDrop}
+              highlight={analysis.highlight}
+              evalInfo={analysis.evalInfo}
+              animationMs={analysis.animationMs}
+              maxSize={680}
+              widthDriven
+              heightVh={0.58}
+              active={tab === 'board'}
+            />
           </div>
           <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto border-t px-3 py-3 [overscroll-behavior:contain]">
             <MoveCoachCard analysis={analysis} current={current} atStart={atStart} hasGame={total > 0} />
@@ -122,7 +135,7 @@ export function MobileLayout({
           )}
         >
           <div className="px-4 pb-4 pt-4">
-            <SourceForm analysis={analysis} />
+            <SourceForm analysis={analysis} onPlayBot={onPlayBot} />
           </div>
           <div className="border-t px-4 py-3 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
             Games

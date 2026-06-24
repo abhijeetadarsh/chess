@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, Settings, Swords } from 'lucide-react'
 
 import { useAuth } from '@/hooks/useAuth'
 import type { UseAnalysis } from '@/hooks/useAnalysis'
@@ -18,7 +18,7 @@ function resultClass(r: string) {
  * Fetch form (Chess.com / Lichess / PGN) + engine-speed selector. Shared by the
  * desktop sidebar and the mobile "Games" tab so both stay in sync.
  */
-export function SourceForm({ analysis }: { analysis: UseAnalysis }) {
+export function SourceForm({ analysis, onPlayBot }: { analysis: UseAnalysis; onPlayBot?: () => void }) {
   const { settings, updateSetting } = useAuth()
   const [tab, setTab] = useState(
     ['chesscom', 'lichess', 'pgn'].includes(settings.default_source) ? settings.default_source : 'chesscom',
@@ -30,6 +30,14 @@ export function SourceForm({ analysis }: { analysis: UseAnalysis }) {
 
   return (
     <>
+      {onPlayBot && (
+        <button
+          onClick={onPlayBot}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/15"
+        >
+          <Swords className="h-4 w-4" /> Play vs Bot
+        </button>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full">
           <TabsTrigger value="chesscom" className="flex-1">
@@ -125,11 +133,13 @@ export function SourcesPanel({
   collapsed,
   onToggleCollapse,
   onOpenSettings,
+  onPlayBot,
 }: {
   analysis: UseAnalysis
   collapsed: boolean
   onToggleCollapse: () => void
   onOpenSettings: () => void
+  onPlayBot?: () => void
 }) {
   if (collapsed) {
     return (
@@ -180,7 +190,7 @@ export function SourcesPanel({
 
       {/* Fetch form */}
       <div className="flex-shrink-0 px-4 pb-4 pt-3">
-        <SourceForm analysis={analysis} />
+        <SourceForm analysis={analysis} onPlayBot={onPlayBot} />
       </div>
 
       {/* Games list */}

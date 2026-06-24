@@ -56,6 +56,16 @@ export const SOUND_OPTIONS: { value: string; label: string }[] = [
   { value: 'glass', label: 'Glass' },
 ]
 
+export const BOT_ELO_PRESETS: { elo: number; label: string }[] = [
+  { elo: 400, label: 'Beginner' },
+  { elo: 800, label: 'Casual' },
+  { elo: 1200, label: 'Intermediate' },
+  { elo: 1600, label: 'Advanced' },
+  { elo: 2000, label: 'Expert' },
+  { elo: 2400, label: 'Master' },
+  { elo: 2800, label: 'Grandmaster' },
+]
+
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 export const CLASS_ICON: Record<string, string> = {
