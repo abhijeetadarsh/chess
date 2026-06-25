@@ -10,10 +10,12 @@ Design notes
   mapped to a large magnitude so ordering and win% behave sensibly.
 * Accuracy uses the win-percentage model popularised by Lichess.
 """
+import asyncio
 import atexit
 import io
 import math
 import os
+import sys
 import threading
 from contextlib import contextmanager
 from statistics import mean
@@ -40,6 +42,23 @@ from config import (
 # ──────────────────────────────────────────────────────────────
 # Engine pool — reuse warm Stockfish processes across requests
 # ──────────────────────────────────────────────────────────────
+def _ensure_subprocess_capable_loop_policy() -> None:
+    """Guarantee Stockfish can be launched on Windows.
+
+    python-chess talks to the engine over an asyncio subprocess. On Windows only
+    the *Proactor* event loop can spawn subprocesses — the Selector loop raises
+    ``NotImplementedError``. uvicorn installs ``WindowsSelectorEventLoopPolicy``
+    whenever it runs with a subprocess (i.e. ``--reload`` or ``--workers``), so
+    without this every engine call would fail with a bare 503. Force a Proactor
+    policy before spawning; the engine's background loop is created from this
+    global policy, and uvicorn's already-running loop is unaffected.
+    """
+    if sys.platform == "win32" and not isinstance(
+        asyncio.get_event_loop_policy(), asyncio.WindowsProactorEventLoopPolicy
+    ):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+
 class _EnginePool:
     """Thread-safe pool of persistent Stockfish processes.
 
@@ -53,6 +72,7 @@ class _EnginePool:
         self._idle: list[chess.engine.SimpleEngine] = []
 
     def _spawn(self) -> chess.engine.SimpleEngine:
+        _ensure_subprocess_capable_loop_policy()
         eng = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
         try:
             eng.configure({"Threads": ENGINE_THREADS, "Hash": ENGINE_HASH_MB})

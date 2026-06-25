@@ -80,7 +80,21 @@ export function previewMoveSound(style: string, isCapture = false) {
       break
     case 'wood':
     default:
-      noiseHit(c, t, { dur: 0.1, cutoff: isCapture ? 650 : 950, gain: isCapture ? 0.72 : 0.52, q: 1.0 })
+      // Solid wooden "thock": a low, damped body tone gives it weight/resonance,
+      // and a short, dull noise knock is the contact. A bare noise burst (no body)
+      // is what makes a click read as thin/plastic.
+      toneHit(c, t, {
+        freq: isCapture ? 120 : 170,
+        dur: isCapture ? 0.17 : 0.13,
+        gain: isCapture ? 0.5 : 0.38,
+        type: 'triangle',
+      })
+      noiseHit(c, t, {
+        dur: isCapture ? 0.08 : 0.06,
+        cutoff: isCapture ? 380 : 520,
+        gain: isCapture ? 0.36 : 0.28,
+        q: 1.1,
+      })
       break
   }
 }

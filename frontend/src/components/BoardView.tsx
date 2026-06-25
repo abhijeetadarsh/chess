@@ -8,7 +8,7 @@ import { BOARD_THEMES, PIECE_CODES, pieceUrl } from '@/lib/chess-assets'
 import { cn } from '@/lib/utils'
 import { EvalBar } from './EvalBar'
 
-const EVAL_BAR_SPACE = 28 // eval bar width (20) + gap (8)
+const EVAL_BAR_SPACE = 22 // horizontal eval bar row (16) + gap (6), stacked above the board
 
 export interface BoardHighlight {
   from: string
@@ -88,7 +88,9 @@ export function BoardView({
       // not the wrapper — so content changes below the board never resize it.
       const heightLimit = widthDriven ? window.innerHeight * heightVh : wrapRef.current?.clientHeight ?? 0
       if (heightLimit < 10) return
-      setBoardSize(Math.floor(Math.min(w - EVAL_BAR_SPACE, heightLimit, maxSize)))
+      // The eval bar sits *above* the board now, so it eats vertical space (not
+      // width); the board can use the full container width.
+      setBoardSize(Math.floor(Math.min(w, heightLimit - EVAL_BAR_SPACE, maxSize)))
     }
     // Recompute on the next frame too: when un-hidden, layout isn't final yet
     // on the first synchronous pass.
@@ -201,7 +203,7 @@ export function BoardView({
         className,
       )}
     >
-      <div className="flex items-stretch gap-2" style={{ height: boardSize, width: boardSize + EVAL_BAR_SPACE }}>
+      <div className="flex flex-col gap-1.5" style={{ width: boardSize, height: boardSize + EVAL_BAR_SPACE }}>
         <EvalBar evalInfo={evalInfo} orientation={orientation} />
         <div className="overflow-hidden rounded-md shadow" style={{ width: boardSize, height: boardSize }}>
           <Chessboard
