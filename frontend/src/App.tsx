@@ -3,11 +3,13 @@ import { Loader2 } from 'lucide-react'
 
 import { useAuth } from '@/hooks/useAuth'
 import { useAnalysis } from '@/hooks/useAnalysis'
+import { usePlay } from '@/hooks/usePlay'
 import { LoginPage } from '@/components/LoginPage'
 import { SourcesPanel } from '@/components/SourcesPanel'
 import { BoardPanel } from '@/components/BoardPanel'
 import { AnalysisPanel } from '@/components/AnalysisPanel'
 import { MobileLayout } from '@/components/MobileLayout'
+import { type MobileSection } from '@/components/MobileNav'
 import { PlayMode } from '@/components/PlayMode'
 import { SettingsDrawer } from '@/components/SettingsDrawer'
 
@@ -23,10 +25,24 @@ function usePersistentToggle(key: string) {
 
 function MainApp() {
   const analysis = useAnalysis()
+  // Play state lives here (not inside PlayMode) so an in-progress game survives
+  // navigating to an analysis tab and back via the persistent mobile nav.
+  const play = usePlay()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [mode, setMode] = useState<'analyze' | 'play'>('analyze')
+  const [mobileTab, setMobileTab] = useState<'board' | 'moves' | 'games'>('games')
   const [sourcesCollapsed, toggleSources] = usePersistentToggle('ca_sources_col')
   const [analysisCollapsed, toggleAnalysis] = usePersistentToggle('ca_analysis_col')
+
+  // Bottom-nav handler shared by the analysis layout and the Play screen, so the
+  // nav behaves identically (and stays put) in both.
+  const selectMobileNav = (section: MobileSection) => {
+    if (section === 'play') setMode('play')
+    else {
+      setMode('analyze')
+      setMobileTab(section)
+    }
+  }
   // Desktop-first: when the width is reported as 0 (some embedded renderers do
   // this on first paint) assume the wide 3-pane layout, then correct on resize.
   const [wide, setWide] = useState(() => (window.innerWidth === 0 ? true : window.innerWidth >= 1024))
@@ -54,8 +70,10 @@ function MainApp() {
       {mode === 'play' ? (
         <PlayMode
           wide={wide}
+          play={play}
           onClose={() => setMode('analyze')}
           onOpenSettings={() => setSettingsOpen(true)}
+          onSelectNav={selectMobileNav}
         />
       ) : wide ? (
         <div
@@ -84,7 +102,9 @@ function MainApp() {
         <MobileLayout
           analysis={analysis}
           onOpenSettings={() => setSettingsOpen(true)}
-          onPlayBot={() => setMode('play')}
+          tab={mobileTab}
+          onTabChange={setMobileTab}
+          onSelectNav={selectMobileNav}
         />
       )}
     </>
