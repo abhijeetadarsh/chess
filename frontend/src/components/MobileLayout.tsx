@@ -1,15 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import {
   ChevronFirst,
   ChevronLast,
   ChevronLeft,
   ChevronRight,
   FlipVertical2,
-  Gamepad2,
-  ListOrdered,
   Search,
   Settings,
-  Swords,
 } from 'lucide-react'
 
 import type { UseAnalysis } from '@/hooks/useAnalysis'
@@ -27,28 +24,32 @@ import { AnalysisPanel } from './AnalysisPanel'
 import { AltMoveButtons } from './MoveCard'
 import { BoardView, useBoardKeyboardNav } from './BoardView'
 import { GameItem, SourceForm } from './SourcesPanel'
+import { MobileNav, type MobileSection } from './MobileNav'
 
 type MobileTab = 'board' | 'moves' | 'games'
 
 export function MobileLayout({
   analysis,
   onOpenSettings,
-  onPlayBot,
+  tab,
+  onTabChange,
+  onSelectNav,
 }: {
   analysis: UseAnalysis
   onOpenSettings: () => void
-  onPlayBot?: () => void
+  tab: MobileTab
+  onTabChange: (tab: MobileTab) => void
+  onSelectNav: (section: MobileSection) => void
 }) {
   useBoardKeyboardNav(analysis)
-  const [tab, setTab] = useState<MobileTab>('games')
 
   // Jump to the board the moment a new game starts analysing (a fresh `meta`
   // object lands once per analysis — from a game tap *or* a pasted PGN).
   const prevMeta = useRef(analysis.meta)
   useEffect(() => {
-    if (analysis.meta && analysis.meta !== prevMeta.current) setTab('board')
+    if (analysis.meta && analysis.meta !== prevMeta.current) onTabChange('board')
     prevMeta.current = analysis.meta
-  }, [analysis.meta])
+  }, [analysis.meta, onTabChange])
 
   const issueCount = analysis.moves.filter((m) => ISSUE_CLASSES.has(m.classification)).length
   const atStart = analysis.currentIndex < 0
@@ -136,7 +137,7 @@ export function MobileLayout({
           )}
         >
           <div className="px-4 pb-4 pt-4">
-            <SourceForm analysis={analysis} onPlayBot={onPlayBot} />
+            <SourceForm analysis={analysis} onPlayBot={() => onSelectNav('play')} />
           </div>
           <div className="border-t px-4 py-3 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
             Games
@@ -161,10 +162,10 @@ export function MobileLayout({
       </main>
 
       {/* ── Bottom controls ─────────────────────────────────────────── */}
-      <footer className="z-20 flex-shrink-0 border-t bg-card pb-[env(safe-area-inset-bottom)]">
+      <div className="z-20 flex-shrink-0">
         {/* Move navigation — relevant on board & moves tabs */}
         {tab !== 'games' && (
-          <div className="flex items-center gap-1 border-b px-2 py-2">
+          <div className="flex items-center gap-1 border-t bg-card px-2 py-2">
             <NavBtn title="Start" onClick={() => analysis.goToMove(-1)} disabled={atStart}>
               <ChevronFirst />
             </NavBtn>
@@ -202,29 +203,8 @@ export function MobileLayout({
           </div>
         )}
 
-        {/* Tab bar */}
-        <nav className="flex items-stretch">
-          <TabButton
-            active={tab === 'board'}
-            onClick={() => setTab('board')}
-            icon={<Swords className="h-5 w-5" />}
-            label="Board"
-          />
-          <TabButton
-            active={tab === 'moves'}
-            onClick={() => setTab('moves')}
-            icon={<ListOrdered className="h-5 w-5" />}
-            label="Moves"
-            badge={issueCount || undefined}
-          />
-          <TabButton
-            active={tab === 'games'}
-            onClick={() => setTab('games')}
-            icon={<Gamepad2 className="h-5 w-5" />}
-            label="Games"
-          />
-        </nav>
-      </footer>
+        <MobileNav active={tab} onSelect={onSelectNav} movesBadge={issueCount || undefined} />
+      </div>
     </div>
   )
 }
@@ -342,40 +322,6 @@ function NavBtn({
       className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors active:bg-primary active:text-primary-foreground disabled:opacity-35 [&_svg]:h-5 [&_svg]:w-5"
     >
       {children}
-    </button>
-  )
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-  badge,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: ReactNode
-  label: string
-  badge?: number
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 text-[0.66rem] font-semibold transition-colors',
-        active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-      )}
-    >
-      <span className="relative">
-        {icon}
-        {badge ? (
-          <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blunder px-1 text-[0.6rem] font-bold leading-none text-white">
-            {badge}
-          </span>
-        ) : null}
-      </span>
-      {label}
     </button>
   )
 }

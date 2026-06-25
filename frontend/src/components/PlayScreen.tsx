@@ -13,8 +13,17 @@ import type { MoveData } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { BoardView } from './BoardView'
+import { MobileNav, type MobileSection } from './MobileNav'
 
-export function PlayScreen({ play, onClose }: { play: UsePlay; onClose: () => void }) {
+export function PlayScreen({
+  play,
+  onClose,
+  onSelectNav,
+}: {
+  play: UsePlay
+  onClose: () => void
+  onSelectNav: (section: MobileSection) => void
+}) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* Header */}
@@ -46,6 +55,8 @@ export function PlayScreen({ play, onClose }: { play: UsePlay; onClose: () => vo
       </header>
 
       {play.started ? <PlayGame play={play} /> : <PlaySetup play={play} />}
+
+      <MobileNav active="play" onSelect={onSelectNav} />
     </div>
   )
 }
