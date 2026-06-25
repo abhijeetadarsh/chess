@@ -1,6 +1,6 @@
-import { ArrowLeft, FlipVertical2, Loader2, RotateCcw } from 'lucide-react'
+import { ArrowLeft, FlipVertical2, Loader2 } from 'lucide-react'
 
-import { usePlay, type UsePlay } from '@/hooks/usePlay'
+import { type UsePlay } from '@/hooks/usePlay'
 import {
   BOT_ELO_PRESETS,
   CLASS_BG,
@@ -14,9 +14,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { BoardView } from './BoardView'
 
-export function PlayScreen({ onClose }: { onClose: () => void }) {
-  const play = usePlay()
-
+export function PlayScreen({ play, onClose }: { play: UsePlay; onClose: () => void }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* Header */}
@@ -53,7 +51,7 @@ export function PlayScreen({ onClose }: { onClose: () => void }) {
 }
 
 /* ── Setup: choose Elo + color ──────────────────────────────────────────────── */
-function PlaySetup({ play }: { play: UsePlay }) {
+export function PlaySetup({ play }: { play: UsePlay }) {
   return (
     <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-6">
       <div className="mx-auto w-full max-w-md space-y-7">
@@ -124,20 +122,26 @@ function PlayGame({ play }: { play: UsePlay }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
-        {/* Board */}
-        <div className="flex-shrink-0 px-2 pt-3">
-          <BoardView
-            fen={play.currentFen}
-            orientation={play.orientation}
-            onPieceDrop={play.onPieceDrop}
-            highlight={play.highlight}
-            evalInfo={play.evalInfo}
-            animationMs={play.animationMs}
-            draggable={!play.reviewing && !play.thinking && !play.gameOver}
-            widthDriven
-            heightVh={0.5}
-            maxSize={560}
-          />
+        {/* Feedback + history (scrolls at the top) */}
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-3 [overscroll-behavior:contain]">
+          <PlayFeedbackCard play={play} />
+          {play.moves.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
+                Your moves
+              </div>
+              <div className="flex flex-col gap-1">
+                {play.moves.map((m, i) => (
+                  <PlayMoveRow
+                    key={i}
+                    move={m}
+                    active={play.reviewing ? i === play.reviewIndex : i === play.moves.length - 1}
+                    onClick={() => play.reviewMove(i)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status + controls */}
@@ -162,33 +166,27 @@ function PlayGame({ play }: { play: UsePlay }) {
           )}
         </div>
 
-        {/* Feedback + history */}
-        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-3 [overscroll-behavior:contain]">
-          <PlayFeedbackCard play={play} />
-          {play.moves.length > 0 && (
-            <div className="mt-4">
-              <div className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
-                Your moves
-              </div>
-              <div className="flex flex-col gap-1">
-                {play.moves.map((m, i) => (
-                  <PlayMoveRow
-                    key={i}
-                    move={m}
-                    active={play.reviewing ? i === play.reviewIndex : i === play.moves.length - 1}
-                    onClick={() => play.reviewMove(i)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        {/* Board pinned to the bottom */}
+        <div className="flex-shrink-0 px-2 pb-3 pt-3">
+          <BoardView
+            fen={play.currentFen}
+            orientation={play.orientation}
+            onPieceDrop={play.onPieceDrop}
+            highlight={play.highlight}
+            evalInfo={play.evalInfo}
+            animationMs={play.animationMs}
+            draggable={!play.reviewing && !play.thinking && !play.gameOver}
+            widthDriven
+            heightVh={0.5}
+            maxSize={560}
+          />
         </div>
       </div>
     </div>
   )
 }
 
-function PlayFeedbackCard({ play }: { play: UsePlay }) {
+export function PlayFeedbackCard({ play }: { play: UsePlay }) {
   if (play.gameOver) {
     const won = play.gameOver.winner === play.userColor
     const draw = play.gameOver.winner === null
@@ -274,7 +272,7 @@ function PlayFeedbackCard({ play }: { play: UsePlay }) {
   )
 }
 
-function PlayMoveRow({ move, active, onClick }: { move: MoveData; active: boolean; onClick: () => void }) {
+export function PlayMoveRow({ move, active, onClick }: { move: MoveData; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}

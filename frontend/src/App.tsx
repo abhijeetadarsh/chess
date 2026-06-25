@@ -8,7 +8,7 @@ import { SourcesPanel } from '@/components/SourcesPanel'
 import { BoardPanel } from '@/components/BoardPanel'
 import { AnalysisPanel } from '@/components/AnalysisPanel'
 import { MobileLayout } from '@/components/MobileLayout'
-import { PlayScreen } from '@/components/PlayScreen'
+import { PlayMode } from '@/components/PlayMode'
 import { SettingsDrawer } from '@/components/SettingsDrawer'
 
 function usePersistentToggle(key: string) {
@@ -48,12 +48,16 @@ function MainApp() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  if (mode === 'play') return <PlayScreen onClose={() => setMode('analyze')} />
-
   return (
     <>
       <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
-      {wide ? (
+      {mode === 'play' ? (
+        <PlayMode
+          wide={wide}
+          onClose={() => setMode('analyze')}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      ) : wide ? (
         <div
           className="grid h-screen gap-[18px] p-[18px]"
           style={{

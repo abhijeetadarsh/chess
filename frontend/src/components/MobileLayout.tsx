@@ -100,10 +100,14 @@ export function MobileLayout({
 
       {/* ── Tab bodies (all mounted; inactive ones hidden to preserve state) ── */}
       <main className="relative min-h-0 flex-1 overflow-hidden">
-        {/* Board — fixed size (width + viewport driven), pinned to the top so the
-            card below never resizes it as you step through moves. */}
+        {/* Review on top (scrolls); board pinned to the bottom at a fixed size
+            (width + viewport driven) so the card above never resizes it as you
+            step through moves. */}
         <div className={cn('flex h-full flex-col', tab !== 'board' && 'hidden')}>
-          <div className="flex-shrink-0 px-2 pt-3">
+          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-3 [overscroll-behavior:contain]">
+            <MoveCoachCard analysis={analysis} current={current} atStart={atStart} hasGame={total > 0} />
+          </div>
+          <div className="flex-shrink-0 border-t px-2 pb-3 pt-3">
             <BoardView
               fen={analysis.currentFen}
               orientation={analysis.orientation}
@@ -116,9 +120,6 @@ export function MobileLayout({
               heightVh={0.58}
               active={tab === 'board'}
             />
-          </div>
-          <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto border-t px-3 py-3 [overscroll-behavior:contain]">
-            <MoveCoachCard analysis={analysis} current={current} atStart={atStart} hasGame={total > 0} />
           </div>
         </div>
 
