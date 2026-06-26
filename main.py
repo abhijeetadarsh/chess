@@ -5,6 +5,7 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, Header
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -28,6 +29,19 @@ app = FastAPI(
     title="Chess Analysis Server",
     description="Deep, move-by-move analysis of chess games from Chess.com and Lichess.",
     version="3.0.0",
+)
+
+# CORS — the web build is served same-origin so it needs none, but the Android
+# APK runs from an `https://localhost` WebView and calls the API cross-origin.
+# Auth uses Bearer tokens (not cookies), so a wildcard origin is safe here with
+# credentials disabled. Restrict it with CORS_ORIGINS="https://a,https://b".
+_cors = os.environ.get("CORS_ORIGINS", "*").strip()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if _cors == "*" else [o.strip() for o in _cors.split(",") if o.strip()],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

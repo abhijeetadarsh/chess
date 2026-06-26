@@ -1,13 +1,23 @@
 name: Android APK
 
-# Build the Android APK (Capacitor wrapper around the Vite/React SPA) and, when
-# triggered by a version tag, publish it to a GitHub Release.
+# Build a signed RELEASE Android APK (Capacitor wrapper around the Vite/React
+# SPA) and, on a version tag, publish it to a GitHub Release.
 #
-#   • Push a tag like `v1.0.0`  → builds the APK and attaches it to a Release.
-#   • "Run workflow" (manual)   → builds the APK and uploads it as a run artifact.
+#   • Push a tag `v1.0.0`   → build + publish a Release with the APK attached.
+#   • Run workflow (manual) → build the APK as an artifact; optionally publish a
+#                             Release by filling in the `release_tag` input.
 #
-# Optional: set a repository variable `VITE_API_BASE` (Settings → Secrets and
-# variables → Actions → Variables) to your deployed backend URL, otherwise the
+# Signing — set these repository secrets to sign with your own keystore (needed
+# for stable, updatable releases):
+#   KEYSTORE_BASE64   base64 of your .jks/.keystore   (base64 -w0 release.jks)
+#   KEYSTORE_PASSWORD store password
+#   KEY_ALIAS         key alias
+#   KEY_PASSWORD      key password
+# If they're absent the build signs with an EPHEMERAL keystore so the APK still
+# installs — but each build gets a different key, so users must uninstall before
+# updating. See ANDROID.md.
+#
+# Optional: repository variable VITE_API_BASE = your deployed backend URL, or the
 # bundled app has no backend to talk to.
 
 on:
@@ -15,6 +25,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Publish a GitHub Release with this tag (e.g. v1.0.0). Leave blank to only upload an artifact.'
+        required: false
+        default: ''
 
 permissions:
   contents: write # required to create/update Releases
@@ -27,17 +42,17 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -55,27 +70,54 @@ jobs:
           if [ ! -d android ]; then npx cap add android; fi
           npx cap sync android
 
-      - name: Build debug APK
+      - name: Build release APK (unsigned)
         working-directory: frontend/android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleRelease --no-daemon
 
-      - name: Stage APK
-        working-directory: .
+      - name: Sign release APK
+        working-directory: frontend/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          mkdir -p artifacts
-          cp frontend/android/app/build/outputs/apk/debug/app-debug.apk \
-             "artifacts/chess-analysis-debug.apk"
+          set -euo pipefail
+          UNSIGNED=app/build/outputs/apk/release/app-release-unsigned.apk
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "Signing with the provided keystore."
+            echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          else
+            echo "::warning::No KEYSTORE_* secrets set — signing with an EPHEMERAL keystore. Add the secrets (see ANDROID.md) for stable, updatable releases."
+            KEYSTORE_PASSWORD=android; KEY_PASSWORD=android; KEY_ALIAS=chess
+            keytool -genkeypair -v -keystore release.jks -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+              -dname "CN=Chess Analysis, O=Chess Analysis, C=US"
+          fi
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" app-release-aligned.apk
+          "$BT/apksigner" sign \
+            --ks release.jks \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --out "$GITHUB_WORKSPACE/chess-analysis.apk" \
+            app-release-aligned.apk
+          rm -f release.jks
+          "$BT/apksigner" verify --print-certs "$GITHUB_WORKSPACE/chess-analysis.apk" | head -n1 || true
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: chess-analysis-apk
-          path: artifacts/chess-analysis-debug.apk
+          path: chess-analysis.apk
           if-no-files-found: error
 
       - name: Publish to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.release_tag != ''
+        uses: softprops/action-gh-release@v3
         with:
-          files: artifacts/chess-analysis-debug.apk
+          tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
+          files: chess-analysis.apk
           generate_release_notes: true
