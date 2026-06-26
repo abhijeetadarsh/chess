@@ -24,11 +24,6 @@ on:
   push:
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/android-apk.yml'
   workflow_dispatch:
     inputs:
       release_tag:
