@@ -72,6 +72,9 @@ login screen — it's stored locally in `data/users.db`.
 
 > **Deploying to a server?** See **[DEPLOYMENT.md](DEPLOYMENT.md)** for production setup
 > (Linux + systemd + nginx + HTTPS, a Docker option, and Windows notes).
+>
+> **Want an Android app?** See **[ANDROID.md](ANDROID.md)** — the web UI is packaged
+> into an APK with Capacitor, built in CI and published to GitHub Releases on a tag.
 
 ---
 
@@ -129,6 +132,8 @@ Edit `config.py` or set environment variables:
 | `environment.yml` | Conda environment spec |
 | `start.bat` | Launcher |
 | `DEPLOYMENT.md` | Production deployment guide |
+| `ANDROID.md` | Android APK packaging (Capacitor) + release workflow |
+| `.github/workflows/android-apk.yml` | CI: build the APK and publish to Releases |
 
 ---
 

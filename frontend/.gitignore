@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Capacitor native projects — scaffolded on demand (locally or in CI) via
+# `npx cap add android`, so they're not tracked.
+android
+ios
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
