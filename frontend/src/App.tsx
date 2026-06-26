@@ -77,7 +77,7 @@ function MainApp() {
         />
       ) : wide ? (
         <div
-          className="grid h-screen gap-[18px] p-[18px]"
+          className="grid h-screen gap-[18px] p-[18px] pt-[max(18px,env(safe-area-inset-top))]"
           style={{
             gridTemplateColumns: `${sourcesCollapsed ? '40px' : '300px'} minmax(440px,1.1fr) ${
               analysisCollapsed ? '40px' : 'minmax(320px,1fr)'

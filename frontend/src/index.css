@@ -127,11 +127,22 @@
 
   * {
     @apply border-border;
+    /* Native-app feel: no tap highlight, no long-press callout, no text
+       selection (re-enabled for inputs below so typing/paste still works). */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   html,
   body,
   #root {
     height: 100%;
+  }
+  html,
+  body {
+    /* Kill the browser-style rubber-band / overscroll glow. */
+    overscroll-behavior: none;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
@@ -139,6 +150,13 @@
     -webkit-font-smoothing: antialiased;
     letter-spacing: -0.011em;
     transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  /* Keep editable fields selectable for typing and pasting (e.g. PGN). */
+  input,
+  textarea,
+  [contenteditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }
 

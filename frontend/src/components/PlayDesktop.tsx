@@ -24,7 +24,7 @@ export function PlayDesktop({
 }) {
   return (
     <div
-      className="grid h-screen gap-[18px] p-[18px]"
+      className="grid h-screen gap-[18px] p-[18px] pt-[max(18px,env(safe-area-inset-top))]"
       style={{ gridTemplateColumns: '300px minmax(440px,1.1fr) minmax(320px,1fr)' }}
     >
       <PlayControlPanel play={play} onClose={onClose} onOpenSettings={onOpenSettings} />

@@ -26,32 +26,35 @@ export function PlayScreen({
 }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
-      {/* Header */}
-      <header className="z-20 flex h-14 flex-shrink-0 items-center gap-2.5 border-b bg-card/95 px-3 backdrop-blur">
-        <button
-          onClick={onClose}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-          title="Back to analysis"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-extrabold tracking-tight">Play vs Bot</div>
-          <div className="truncate text-[0.7rem] text-muted-foreground">
-            {play.started
-              ? `Stockfish · ${play.elo} Elo · you play ${play.userColor}`
-              : 'Pick a level and play Stockfish with live coaching'}
-          </div>
-        </div>
-        {play.started && (
+      {/* Header — outer element carries the status-bar inset so its card
+          background fills the area behind the clock (edge-to-edge). */}
+      <header className="z-20 flex-shrink-0 border-b bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="flex h-14 items-center gap-2.5 px-3">
           <button
-            onClick={play.flip}
+            onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-            title="Flip board"
+            title="Back to analysis"
           >
-            <FlipVertical2 className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
-        )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-extrabold tracking-tight">Play vs Bot</div>
+            <div className="truncate text-[0.7rem] text-muted-foreground">
+              {play.started
+                ? `Stockfish · ${play.elo} Elo · you play ${play.userColor}`
+                : 'Pick a level and play Stockfish with live coaching'}
+            </div>
+          </div>
+          {play.started && (
+            <button
+              onClick={play.flip}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+              title="Flip board"
+            >
+              <FlipVertical2 className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </header>
 
       {play.started ? <PlayGame play={play} /> : <PlaySetup play={play} />}

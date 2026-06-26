@@ -67,7 +67,7 @@ export function MobileLayout({
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* ── Top app bar ─────────────────────────────────────────────── */}
-      <header className="z-20 flex-shrink-0 border-b bg-card/95 backdrop-blur">
+      <header className="z-20 flex-shrink-0 border-b bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="flex h-14 items-center gap-2.5 px-3">
           <span className="text-xl leading-none">♟</span>
           <div className="min-w-0 flex-1">

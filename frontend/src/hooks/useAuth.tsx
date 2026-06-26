@@ -8,6 +8,7 @@ import {
 } from 'react'
 
 import * as api from '@/lib/api'
+import { syncStatusBarStyle } from '@/lib/native'
 import type { AuthUser, UserSettings } from '@/lib/types'
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -69,7 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Apply the interface theme to <html data-theme> whenever it changes.
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.ui_theme || 'light'
+    const theme = settings.ui_theme || 'light'
+    document.documentElement.dataset.theme = theme
+    syncStatusBarStyle(theme === 'light')
   }, [settings.ui_theme])
 
   // Validate an existing token on mount and pull server-side settings.
