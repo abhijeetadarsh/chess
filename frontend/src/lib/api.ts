@@ -9,6 +9,13 @@ import type {
   UserSettings,
 } from './types'
 
+// Base URL for the backend. Empty (the default) means same-origin, which is
+// correct when FastAPI serves the built SPA. The Android APK bundles the SPA
+// with no backend, so set VITE_API_BASE at build time (e.g. https://your-host)
+// to point at a deployed backend — otherwise the app's API calls will fail.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
+const apiUrl = (path: string) => `${API_BASE}${path}`
+
 const TOKEN_KEY = 'ca_token'
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY)
@@ -34,7 +41,7 @@ async function asError(r: Response): Promise<never> {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export async function login(username: string, password: string): Promise<AuthResponse> {
-  const r = await fetch('/auth/login', {
+  const r = await fetch(apiUrl('/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -44,7 +51,7 @@ export async function login(username: string, password: string): Promise<AuthRes
 }
 
 export async function register(username: string, password: string): Promise<AuthResponse> {
-  const r = await fetch('/auth/register', {
+  const r = await fetch(apiUrl('/auth/register'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -54,17 +61,17 @@ export async function register(username: string, password: string): Promise<Auth
 }
 
 export async function fetchMe(): Promise<AuthUser> {
-  const r = await fetch('/auth/me', { headers: authHeaders() })
+  const r = await fetch(apiUrl('/auth/me'), { headers: authHeaders() })
   if (!r.ok) return asError(r)
   return r.json()
 }
 
 export async function logoutRequest(): Promise<void> {
-  await fetch('/auth/logout', { method: 'POST', headers: authHeaders() }).catch(() => {})
+  await fetch(apiUrl('/auth/logout'), { method: 'POST', headers: authHeaders() }).catch(() => {})
 }
 
 export async function saveSettings(partial: Partial<UserSettings>): Promise<void> {
-  await fetch('/auth/settings', {
+  await fetch(apiUrl('/auth/settings'), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(partial),
@@ -78,7 +85,7 @@ export async function fetchGames(
   username: string,
   maxGames: number,
 ): Promise<GameInfo[]> {
-  const r = await fetch(`/games/${source}/${encodeURIComponent(username)}?max_games=${maxGames}`)
+  const r = await fetch(apiUrl(`/games/${source}/${encodeURIComponent(username)}?max_games=${maxGames}`))
   if (!r.ok) return asError(r)
   const data = await r.json()
   return data.games
@@ -92,7 +99,7 @@ export async function playMove(
   elo: number,
   depth: number,
 ): Promise<PlayMoveResult> {
-  const r = await fetch('/play/move', {
+  const r = await fetch(apiUrl('/play/move'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fen, uci, elo, depth }),
@@ -102,7 +109,7 @@ export async function playMove(
 }
 
 export async function botMove(fen: string, elo: number): Promise<BotMoveResult> {
-  const r = await fetch('/play/bot', {
+  const r = await fetch(apiUrl('/play/bot'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fen, elo }),
@@ -112,7 +119,7 @@ export async function botMove(fen: string, elo: number): Promise<BotMoveResult> 
 }
 
 export async function evaluateFen(fen: string, depth = 12): Promise<EvalResult> {
-  const r = await fetch('/evaluate', {
+  const r = await fetch(apiUrl('/evaluate'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fen, depth }),
@@ -130,7 +137,7 @@ export async function* streamAnalysis(
   depth: number,
   signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
-  const r = await fetch('/analyze/stream', {
+  const r = await fetch(apiUrl('/analyze/stream'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pgn, depth }),
