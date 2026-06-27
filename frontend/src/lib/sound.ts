@@ -60,6 +60,20 @@ export function playMoveSound(isCapture: boolean, enabled: boolean, style = 'woo
   previewMoveSound(style, isCapture)
 }
 
+/**
+ * A short, urgent two-tone "alert" played when a move puts a king in check.
+ * Synthesised (no assets), and intentionally distinct from the move sounds: a
+ * quick rising pair of square-ish blips reads as a warning rather than a thock.
+ */
+export function playCheckSound(enabled: boolean) {
+  if (!enabled) return
+  const c = getCtx()
+  if (!c) return
+  const t = c.currentTime
+  toneHit(c, t, { freq: 660, dur: 0.1, gain: 0.3, type: 'triangle' })
+  toneHit(c, t + 0.09, { freq: 990, dur: 0.13, gain: 0.34, type: 'triangle' })
+}
+
 /** Same synthesis, but always audible — used to preview a style in Settings. */
 export function previewMoveSound(style: string, isCapture = false) {
   const c = getCtx()

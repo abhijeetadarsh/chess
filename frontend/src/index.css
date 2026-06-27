@@ -192,3 +192,14 @@
 [data-piece] img {
   transform: translateZ(0);
 }
+
+/* Pulsing red marker on the square of a king that is in check. */
+@keyframes checkPulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.35);
+  }
+}
