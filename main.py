@@ -155,6 +155,14 @@ class BotMoveRequest(BaseModel):
     elo: int = Field(1500, ge=MIN_BOT_ELO, le=MAX_BOT_ELO)
 
 
+class SaveBotGameRequest(BaseModel):
+    pgn: str = Field(..., description="PGN of the finished game vs the bot")
+    user_color: str = Field("white", description="Colour the user played")
+    elo: int = Field(1500, ge=MIN_BOT_ELO, le=MAX_BOT_ELO)
+    result: Optional[str] = Field(None, description="Game result, e.g. '1-0'")
+    reason: Optional[str] = Field(None, description="How it ended, e.g. 'checkmate'")
+
+
 def _clamp_depth(depth: int) -> int:
     return min(max(depth, 1), MAX_DEPTH)
 
@@ -297,6 +305,25 @@ async def play_bot_move(request: BotMoveRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bot move failed: {e}")
+
+
+@app.post("/play/games", tags=["Play"])
+async def save_played_game(req: SaveBotGameRequest, authorization: Optional[str] = Header(None)):
+    """Persist a finished game vs the bot for the current user so it can be reviewed later."""
+    user = _require_user(authorization)
+    if not req.pgn.strip():
+        raise HTTPException(400, "Empty PGN")
+    gid = _auth.save_bot_game(
+        user["id"], req.pgn, req.user_color, req.elo, req.result, req.reason
+    )
+    return {"id": gid}
+
+
+@app.get("/play/games", tags=["Play"])
+async def list_played_games(authorization: Optional[str] = Header(None)):
+    """List the current user's saved bot games (most recent first)."""
+    user = _require_user(authorization)
+    return {"games": _auth.get_bot_games(user["id"])}
 
 
 @app.post("/analyze/game", tags=["Analysis"])

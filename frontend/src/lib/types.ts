@@ -120,6 +120,16 @@ export interface BotMoveResult {
   winner: 'white' | 'black' | null
 }
 
+export interface SavedBotGame {
+  id: number
+  pgn: string
+  user_color: 'white' | 'black'
+  elo: number
+  result: string | null
+  reason: string | null
+  created_at: string
+}
+
 export interface UserSettings {
   chesscom_username: string
   lichess_username: string
