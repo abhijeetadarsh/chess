@@ -59,6 +59,17 @@ def init_db():
                 expires_at  TEXT    NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS bot_games (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL,
+                pgn         TEXT    NOT NULL,
+                user_color  TEXT    NOT NULL DEFAULT 'white',
+                elo         INTEGER NOT NULL DEFAULT 1500,
+                result      TEXT,
+                reason      TEXT,
+                created_at  TEXT    DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
         """)
         # Migrations: add columns introduced after a DB was first created.
         cols = {r[1] for r in conn.execute("PRAGMA table_info(user_settings)")}
@@ -161,6 +172,36 @@ def save_settings(user_id: int, data: dict):
             f"UPDATE user_settings SET {sets} WHERE user_id = ?",
             [*fields.values(), user_id],
         )
+
+
+# ── Bot games (games played against the engine) ───────────────────────────────
+
+def save_bot_game(
+    user_id: int,
+    pgn: str,
+    user_color: str = "white",
+    elo: int = 1500,
+    result: str | None = None,
+    reason: str | None = None,
+) -> int:
+    with _db() as conn:
+        cur = conn.execute(
+            """INSERT INTO bot_games (user_id, pgn, user_color, elo, result, reason)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, pgn, user_color, elo, result, reason),
+        )
+        return cur.lastrowid
+
+
+def get_bot_games(user_id: int, limit: int = 50) -> list[dict]:
+    with _db() as conn:
+        rows = conn.execute(
+            """SELECT id, pgn, user_color, elo, result, reason, created_at
+               FROM bot_games WHERE user_id = ?
+               ORDER BY id DESC LIMIT ?""",
+            (user_id, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def revoke_session(token: str):

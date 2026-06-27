@@ -16,6 +16,7 @@
     "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.2.1",
     "@capacitor/status-bar": "^6.0.3",
+    "@capgo/capacitor-navigation-bar": "^6.1.75",
     "@radix-ui/react-dialog": "^1.1.17",
     "@radix-ui/react-label": "^2.1.10",
     "@radix-ui/react-scroll-area": "^1.2.12",

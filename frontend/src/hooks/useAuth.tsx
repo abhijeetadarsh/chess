@@ -8,7 +8,7 @@ import {
 } from 'react'
 
 import * as api from '@/lib/api'
-import { syncStatusBarStyle } from '@/lib/native'
+import { syncSystemBars } from '@/lib/native'
 import type { AuthUser, UserSettings } from '@/lib/types'
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -72,7 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const theme = settings.ui_theme || 'light'
     document.documentElement.dataset.theme = theme
-    syncStatusBarStyle(theme === 'light')
+    // Only 'light' is a light theme; every other preset is dark.
+    syncSystemBars(theme === 'light')
   }, [settings.ui_theme])
 
   // Validate an existing token on mount and pull server-side settings.
