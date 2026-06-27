@@ -98,6 +98,7 @@ export interface BotMove {
 export interface PlayMoveResult {
   feedback: MoveData // the user's move, scored like an analysed move
   bot: BotMove | null
+  bot_feedback: MoveData | null // the bot's reply, scored the same way
   fen: string
   eval: number
   mate: number | null
@@ -110,6 +111,7 @@ export interface PlayMoveResult {
 
 export interface BotMoveResult {
   bot: BotMove | null
+  bot_feedback: MoveData | null // the bot's move, scored like an analysed move
   fen: string
   eval: number
   mate: number | null

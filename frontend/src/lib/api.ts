@@ -109,11 +109,11 @@ export async function playMove(
   return r.json()
 }
 
-export async function botMove(fen: string, elo: number): Promise<BotMoveResult> {
+export async function botMove(fen: string, elo: number, depth: number): Promise<BotMoveResult> {
   const r = await fetch(apiUrl('/play/bot'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fen, elo }),
+    body: JSON.stringify({ fen, elo, depth }),
   })
   if (!r.ok) return asError(r)
   return r.json()

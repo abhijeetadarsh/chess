@@ -20,7 +20,7 @@ export interface UsePlay {
   userColor: 'white' | 'black'
   orientation: 'white' | 'black'
   fen: string
-  moves: MoveData[] // one entry per *user* move, scored like analysis
+  moves: MoveData[] // every ply (your moves AND the bot's), each scored like analysis
   currentFen: string
   evalInfo: EvalInfo
   highlight: Highlight | null
@@ -145,7 +145,7 @@ export function usePlay(): UsePlay {
     setThinking(true)
     setStatus('Bot is thinking…')
     try {
-      const res = await api.botMove(liveFenRef.current, eloRef.current)
+      const res = await api.botMove(liveFenRef.current, eloRef.current, settings.engine_depth)
       chessRef.current = new Chess(res.fen)
       liveFenRef.current = res.fen
       if (res.bot) {
@@ -156,6 +156,7 @@ export function usePlay(): UsePlay {
         setHighlight(hl)
         playMoveSound(res.bot.san.includes('x'), !!settings.sound_enabled, settings.sound_style)
         try { historyRef.current.move(res.bot.san) } catch { /* best-effort PGN history */ }
+        if (res.bot_feedback) setMoves((prev) => [...prev, res.bot_feedback!])
       }
       setEvalInfo({ eval: res.eval, mate: res.mate })
       if (res.game_over) applyGameOver({ result: res.result, reason: res.reason, winner: res.winner })
@@ -166,7 +167,7 @@ export function usePlay(): UsePlay {
       thinkingRef.current = false
       setThinking(false)
     }
-  }, [applyGameOver, settings.sound_enabled, settings.sound_style])
+  }, [applyGameOver, settings.engine_depth, settings.sound_enabled, settings.sound_style])
 
   const start = useCallback(() => {
     resetTo(userColor)
@@ -221,7 +222,8 @@ export function usePlay(): UsePlay {
     async (beforeFen: string, uci: string) => {
       try {
         const res = await api.playMove(beforeFen, uci, eloRef.current, settings.engine_depth)
-        setMoves((prev) => [...prev, res.feedback])
+        // Append your move and (if it replied) the bot's move as scored plies.
+        setMoves((prev) => (res.bot_feedback ? [...prev, res.feedback, res.bot_feedback] : [...prev, res.feedback]))
         chessRef.current = new Chess(res.fen)
         liveFenRef.current = res.fen
         // Accumulate the user's move (then the bot's reply) for the PGN export.
