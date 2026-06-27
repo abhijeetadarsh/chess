@@ -5,8 +5,30 @@ import { Chessboard } from 'react-chessboard'
 import { useAuth } from '@/hooks/useAuth'
 import type { EvalInfo, UseAnalysis } from '@/hooks/useAnalysis'
 import { BOARD_THEMES, PIECE_CODES, pieceUrl } from '@/lib/chess-assets'
+import { playCheckSound } from '@/lib/sound'
 import { cn } from '@/lib/utils'
 import { EvalBar } from './EvalBar'
+
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+
+/** The square of the king currently in check (side to move), or null. */
+function findCheckSquare(fen: string): string | null {
+  try {
+    const game = new Chess(fen)
+    if (!game.inCheck()) return null
+    const turn = game.turn() // side to move is the one in check
+    const board = game.board()
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = board[r][c]
+        if (p && p.type === 'k' && p.color === turn) return FILES[c] + (8 - r)
+      }
+    }
+  } catch {
+    /* invalid fen */
+  }
+  return null
+}
 
 const EVAL_BAR_SPACE = 22 // horizontal eval bar row (16) + gap (6), stacked above the board
 
@@ -124,14 +146,32 @@ export function BoardView({
     return obj
   }, [settings.piece_set])
 
+  // The king in check gets a pulsing red marker, and a distinct alert sound is
+  // played whenever the *displayed* position transitions into check (covers both
+  // live play and stepping through analysis).
+  const checkSquare = useMemo(() => findCheckSquare(fen), [fen])
+  const wasCheckRef = useRef(false)
+  useEffect(() => {
+    if (checkSquare && !wasCheckRef.current) playCheckSound(!!settings.sound_enabled)
+    wasCheckRef.current = !!checkSquare
+  }, [checkSquare, fen, settings.sound_enabled])
+
   const highlightStyles = useMemo(() => {
     const s: Record<string, CSSProperties> = {}
     if (highlight) {
       s[highlight.from] = { boxShadow: 'inset 0 0 0 4px rgba(255,199,0,.45)' }
       s[highlight.to] = { boxShadow: 'inset 0 0 0 4px rgba(0,113,227,.5)' }
     }
+    if (checkSquare) {
+      s[checkSquare] = {
+        ...(s[checkSquare] ?? {}),
+        background: 'radial-gradient(circle, rgba(220,38,38,.9) 0%, rgba(220,38,38,.45) 45%, transparent 72%)',
+        boxShadow: 'inset 0 0 0 4px rgba(220,38,38,.65)',
+        animation: 'checkPulse 1s ease-in-out infinite',
+      }
+    }
     return s
-  }, [highlight])
+  }, [highlight, checkSquare])
 
   // ── Tap-to-move ──────────────────────────────────────────────────────────
   const tapMove = !!settings.tap_to_move
