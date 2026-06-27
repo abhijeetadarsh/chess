@@ -51,7 +51,7 @@ export function SourceForm({ analysis, onPlayBot }: { analysis: UseAnalysis; onP
           onClick={onPlayBot}
           className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/15"
         >
-          <Swords className="h-4 w-4" /> Play vs Bot
+          <Play className="h-4 w-4 fill-current" /> Play
         </button>
       )}
       <Tabs value={tab} onValueChange={setTab}>
