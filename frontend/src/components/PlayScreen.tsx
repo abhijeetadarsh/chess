@@ -1,5 +1,21 @@
-import { useState } from 'react'
-import { ArrowLeft, Bot, FlipVertical2, Loader2, Lock, Swords, Users } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  ArrowLeft,
+  Bot,
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
+  CornerUpLeft,
+  Flag,
+  FlipVertical2,
+  Loader2,
+  Lock,
+  RotateCcw,
+  Settings,
+  Swords,
+  Users,
+} from 'lucide-react'
 
 import { type UsePlay } from '@/hooks/usePlay'
 import {
@@ -14,6 +30,7 @@ import type { MoveData } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { BoardView } from './BoardView'
+import { MoveCard } from './MoveCard'
 import { MobileNav, type MobileSection } from './MobileNav'
 
 /** Pre-game phase: the game-type menu, then the bot difficulty/colour picker. */
@@ -21,18 +38,24 @@ type PlayView = 'home' | 'setup'
 /** In-game phase: which Play tab is showing (mirrors the shared bottom nav). */
 type PlayTab = 'board' | 'moves'
 
+/**
+ * Mobile Play-vs-Bot screen. It deliberately reuses the *same* shell as the
+ * analysis `MobileLayout` — identical top app bar (back · title · controls ·
+ * settings), a Board tab with the board pinned to the bottom and the ⏮◀▶⏭
+ * move-navigation strip beneath it, and a Moves tab rendered with the very same
+ * `MoveCard` the analysis review uses. Only the data comes from the live game.
+ */
 export function PlayScreen({
   play,
   onClose,
+  onOpenSettings,
   onSelectNav,
 }: {
   play: UsePlay
   onClose: () => void
+  onOpenSettings: () => void
   onSelectNav: (section: MobileSection) => void
 }) {
-  // Pre-game step (only relevant while no game is running) and, during a game,
-  // which Play tab is active. The game state itself lives in `play` (owned by
-  // App) so it survives leaving and re-entering Play mode.
   const [view, setView] = useState<PlayView>('home')
   const [tab, setTab] = useState<PlayTab>('board')
 
@@ -56,6 +79,7 @@ export function PlayScreen({
     else onClose()
   }
 
+  const title = play.started || view === 'setup' ? 'Play vs Bot' : 'Play'
   const subtitle = play.started
     ? `Stockfish · ${play.elo} Elo · you play ${play.userColor}`
     : view === 'setup'
@@ -64,52 +88,178 @@ export function PlayScreen({
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
-      {/* Header — outer element carries the status-bar inset so its card
-          background fills the area behind the clock (edge-to-edge). */}
+      {/* ── Top app bar (mirrors the analysis MobileLayout header) ──────────── */}
       <header className="z-20 flex-shrink-0 border-b bg-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="flex h-14 items-center gap-2.5 px-3">
-          <button
-            onClick={back}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-            title={!play.started && view === 'setup' ? 'Back' : 'Back to analysis'}
-          >
+        <div className="flex h-14 items-center gap-1.5 px-3">
+          <HeaderBtn onClick={back} title={!play.started && view === 'setup' ? 'Back' : 'Back to analysis'}>
             <ArrowLeft className="h-5 w-5" />
-          </button>
+          </HeaderBtn>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-extrabold tracking-tight">
-              {play.started || view === 'setup' ? 'Play vs Bot' : 'Play'}
-            </div>
+            <div className="truncate text-sm font-extrabold tracking-tight">{title}</div>
             <div className="truncate text-[0.7rem] text-muted-foreground">{subtitle}</div>
           </div>
+
+          {/* Live-game controls live in the top bar so the bottom strip can stay
+              an identical copy of the analysis move-navigation bar. */}
           {play.started && (
-            <button
-              onClick={play.flip}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-              title="Flip board"
-            >
-              <FlipVertical2 className="h-5 w-5" />
-            </button>
+            <>
+              {play.reviewing && (
+                <HeaderBtn onClick={play.resume} title="Resume live game">
+                  <CornerUpLeft className="h-5 w-5" />
+                </HeaderBtn>
+              )}
+              {play.gameOver ? (
+                <HeaderBtn onClick={play.newGame} title="New game">
+                  <RotateCcw className="h-5 w-5" />
+                </HeaderBtn>
+              ) : (
+                <HeaderBtn onClick={play.resign} title="Resign" disabled={play.thinking}>
+                  <Flag className="h-5 w-5" />
+                </HeaderBtn>
+              )}
+              <HeaderBtn onClick={play.flip} title="Flip board">
+                <FlipVertical2 className="h-5 w-5" />
+              </HeaderBtn>
+            </>
           )}
+          <HeaderBtn onClick={onOpenSettings} title="Settings">
+            <Settings className="h-5 w-5" />
+          </HeaderBtn>
         </div>
       </header>
 
-      {play.started ? (
-        tab === 'board' ? (
-          <PlayBoardTab play={play} />
+      {/* ── Tab body ────────────────────────────────────────────────────────── */}
+      <main className="relative min-h-0 flex-1 overflow-hidden">
+        {play.started ? (
+          tab === 'board' ? (
+            <PlayBoardTab play={play} />
+          ) : (
+            <PlayMovesTab play={play} />
+          )
+        ) : view === 'setup' ? (
+          <PlaySetup play={play} />
         ) : (
-          <PlayMovesTab play={play} />
-        )
-      ) : view === 'setup' ? (
-        <PlaySetup play={play} />
-      ) : (
-        <PlayHome onPlayBot={() => setView('setup')} />
-      )}
+          <PlayHome onPlayBot={() => setView('setup')} />
+        )}
+      </main>
 
-      <MobileNav
-        active={navActive}
-        onSelect={handleNav}
-        movesBadge={play.started ? play.moves.length || undefined : undefined}
-      />
+      {/* ── Bottom controls: move-nav strip (in game) + persistent nav ──────── */}
+      <div className="z-20 flex-shrink-0">
+        {play.started && <PlayMoveNav play={play} />}
+        <MobileNav
+          active={navActive}
+          onSelect={handleNav}
+          movesBadge={play.started ? play.moves.length || undefined : undefined}
+        />
+      </div>
+    </div>
+  )
+}
+
+/* ── Board tab: coaching above, board pinned to the bottom (like analysis) ───── */
+function PlayBoardTab({ play }: { play: UsePlay }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-3 [overscroll-behavior:contain]">
+        <PlayFeedbackCard play={play} />
+      </div>
+      <div className="flex-shrink-0 border-t px-2 pb-3 pt-3">
+        <BoardView
+          fen={play.currentFen}
+          orientation={play.orientation}
+          onPieceDrop={play.onPieceDrop}
+          highlight={play.highlight}
+          evalInfo={play.evalInfo}
+          animationMs={play.animationMs}
+          draggable={!play.reviewing && !play.thinking && !play.gameOver}
+          widthDriven
+          heightVh={0.58}
+          maxSize={680}
+        />
+      </div>
+    </div>
+  )
+}
+
+/* ── Moves tab: the scored move history, rendered with the analysis MoveCard ─── */
+function PlayMovesTab({ play }: { play: UsePlay }) {
+  const activeRef = useRef<HTMLDivElement>(null)
+  const liveIdx = play.moves.length - 1
+  const activeIndex = play.reviewing ? play.reviewIndex : liveIdx
+
+  // Keep the active move in view within the list (never scroll the window).
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [activeIndex])
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3.5 py-3.5 [overscroll-behavior:contain]">
+        {play.moves.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3.5 p-7 text-center text-muted-foreground">
+            <div className="text-5xl opacity-70">♟</div>
+            <p className="max-w-[300px] text-sm leading-relaxed">
+              Your moves will appear here as you play — each one scored with the engine's best
+              alternatives and a plain-English explanation, just like the game review.
+            </p>
+          </div>
+        ) : (
+          play.moves.map((m, i) => (
+            <div key={i} ref={i === activeIndex ? activeRef : undefined}>
+              <MoveCard
+                move={m}
+                index={i}
+                active={i === activeIndex}
+                onSelect={play.reviewMove}
+                onPlayAlt={() => {}}
+              />
+            </div>
+          ))
+        )}
+      </div>
+      <div className="flex flex-shrink-0 items-center gap-2 border-t px-4 py-2.5 text-sm text-muted-foreground">
+        {play.thinking && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+        <span className="truncate">{play.status}</span>
+      </div>
+    </div>
+  )
+}
+
+/* ── Bottom move-navigation strip (an exact copy of the analysis one) ────────── */
+function PlayMoveNav({ play }: { play: UsePlay }) {
+  const total = play.moves.length
+  const liveIdx = total - 1
+  const idx = play.reviewing ? play.reviewIndex : liveIdx
+  const cur = idx >= 0 ? play.moves[idx] : null
+
+  return (
+    <div className="flex items-center gap-1 border-t bg-card px-2 py-2">
+      <NavBtn title="First move" onClick={() => total && play.reviewMove(0)} disabled={total === 0 || idx <= 0}>
+        <ChevronFirst />
+      </NavBtn>
+      <NavBtn
+        title="Previous"
+        onClick={() => idx > 0 && play.reviewMove(idx - 1)}
+        disabled={total === 0 || idx <= 0}
+      >
+        <ChevronLeft />
+      </NavBtn>
+      <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-1 leading-none">
+        <span className="truncate font-mono text-sm font-extrabold">{cur ? cur.san : '—'}</span>
+        <span className="mt-0.5 text-[0.66rem] text-muted-foreground">
+          {total ? `${idx + 1} / ${total}` : 'No moves'}
+        </span>
+      </div>
+      <NavBtn
+        title="Next"
+        onClick={() => idx < liveIdx && play.reviewMove(idx + 1)}
+        disabled={total === 0 || !play.reviewing || idx >= liveIdx}
+      >
+        <ChevronRight />
+      </NavBtn>
+      <NavBtn title="Live position" onClick={() => play.resume()} disabled={!play.reviewing}>
+        <ChevronLast />
+      </NavBtn>
     </div>
   )
 }
@@ -117,30 +267,40 @@ export function PlayScreen({
 /* ── Home: choose a game type ───────────────────────────────────────────────── */
 function PlayHome({ onPlayBot }: { onPlayBot: () => void }) {
   return (
-    <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-6">
-      <div className="mx-auto w-full max-w-md space-y-3">
-        <div className="mb-1 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-          New game
-        </div>
-        <GameTypeCard
-          icon={<Bot className="h-6 w-6" />}
-          title="Play with Bot"
-          subtitle="Challenge Stockfish at any level — every move is coached."
-          onClick={onPlayBot}
-        />
-        <GameTypeCard
-          icon={<Users className="h-6 w-6" />}
-          title="Play a random person"
-          subtitle="Get matched with another player online."
-          comingSoon
-        />
-        <GameTypeCard
-          icon={<Swords className="h-6 w-6" />}
-          title="Play with a friend"
-          subtitle="Invite a friend with a private link."
-          comingSoon
-        />
+    <div className="scrollbar-thin h-full overflow-y-auto px-5 py-6">
+      <GameTypeMenu onPlayBot={onPlayBot} />
+    </div>
+  )
+}
+
+/**
+ * The game-type chooser (Play with Bot · random · friend). Shared by the mobile
+ * Play home and the desktop control panel so both offer the same entry menu.
+ */
+export function GameTypeMenu({ onPlayBot }: { onPlayBot: () => void }) {
+  return (
+    <div className="mx-auto w-full max-w-md space-y-3">
+      <div className="mb-1 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+        New game
       </div>
+      <GameTypeCard
+        icon={<Bot className="h-6 w-6" />}
+        title="Play with Bot"
+        subtitle="Challenge Stockfish at any level — every move is coached."
+        onClick={onPlayBot}
+      />
+      <GameTypeCard
+        icon={<Users className="h-6 w-6" />}
+        title="Play a random person"
+        subtitle="Get matched with another player online."
+        comingSoon
+      />
+      <GameTypeCard
+        icon={<Swords className="h-6 w-6" />}
+        title="Play with a friend"
+        subtitle="Invite a friend with a private link."
+        comingSoon
+      />
     </div>
   )
 }
@@ -152,7 +312,7 @@ function GameTypeCard({
   onClick,
   comingSoon,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   title: string
   subtitle: string
   onClick?: () => void
@@ -195,7 +355,7 @@ function GameTypeCard({
 /* ── Setup: choose Elo + color ──────────────────────────────────────────────── */
 export function PlaySetup({ play }: { play: UsePlay }) {
   return (
-    <div className="scrollbar-thin flex-1 overflow-y-auto px-5 py-6">
+    <div className="scrollbar-thin h-full overflow-y-auto px-5 py-6">
       <div className="mx-auto w-full max-w-md space-y-7">
         <div className="text-center">
           <div className="text-4xl">🤖</div>
@@ -254,89 +414,6 @@ export function PlaySetup({ play }: { play: UsePlay }) {
         <Button className="w-full" size="lg" onClick={play.start}>
           Start game
         </Button>
-      </div>
-    </div>
-  )
-}
-
-/* ── Board tab: last-move coaching above the board + status/controls ─────────── */
-function PlayBoardTab({ play }: { play: UsePlay }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
-        {/* Last-move feedback above the board (mirrors the analysis coach card). */}
-        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-3 [overscroll-behavior:contain]">
-          <PlayFeedbackCard play={play} />
-        </div>
-
-        {/* Status + controls */}
-        <div className="flex flex-shrink-0 items-center gap-2 border-y px-3 py-2">
-          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            {play.thinking && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
-            <span className="truncate">{play.status}</span>
-          </span>
-          {play.reviewing && (
-            <Button size="sm" variant="secondary" onClick={play.resume}>
-              ↩ Resume
-            </Button>
-          )}
-          {play.gameOver ? (
-            <Button size="sm" onClick={play.newGame}>
-              New game
-            </Button>
-          ) : (
-            <Button size="sm" variant="secondary" onClick={play.resign} disabled={play.thinking}>
-              Resign
-            </Button>
-          )}
-        </div>
-
-        {/* Board pinned to the bottom */}
-        <div className="flex-shrink-0 px-2 pb-3 pt-3">
-          <BoardView
-            fen={play.currentFen}
-            orientation={play.orientation}
-            onPieceDrop={play.onPieceDrop}
-            highlight={play.highlight}
-            evalInfo={play.evalInfo}
-            animationMs={play.animationMs}
-            draggable={!play.reviewing && !play.thinking && !play.gameOver}
-            widthDriven
-            heightVh={0.5}
-            maxSize={560}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ── Moves tab: the scored move history of the bot game ──────────────────────── */
-function PlayMovesTab({ play }: { play: UsePlay }) {
-  return (
-    <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-3 [overscroll-behavior:contain]">
-      <div className="mx-auto w-full max-w-3xl">
-        {play.moves.length === 0 ? (
-          <div className="flex h-32 items-center justify-center px-4 text-center text-sm text-muted-foreground">
-            Your moves will be listed here as you play — each one scored and explained.
-          </div>
-        ) : (
-          <>
-            <div className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
-              Your moves
-            </div>
-            <div className="flex flex-col gap-1">
-              {play.moves.map((m, i) => (
-                <PlayMoveRow
-                  key={i}
-                  move={m}
-                  active={play.reviewing ? i === play.reviewIndex : i === play.moves.length - 1}
-                  onClick={() => play.reviewMove(i)}
-                />
-              ))}
-            </div>
-          </>
-        )}
       </div>
     </div>
   )
@@ -454,6 +531,53 @@ export function PlayMoveRow({ move, active, onClick }: { move: MoveData; active:
       <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
         {formatEval(move.eval, move.mate_in)}
       </span>
+    </button>
+  )
+}
+
+/* ── Shared bits ─────────────────────────────────────────────────────────────── */
+function HeaderBtn({
+  children,
+  onClick,
+  title,
+  disabled,
+}: {
+  children: ReactNode
+  onClick: () => void
+  title: string
+  disabled?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40"
+    >
+      {children}
+    </button>
+  )
+}
+
+function NavBtn({
+  children,
+  onClick,
+  title,
+  disabled,
+}: {
+  children: ReactNode
+  onClick: () => void
+  title: string
+  disabled?: boolean
+}) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors active:bg-primary active:text-primary-foreground disabled:opacity-35 [&_svg]:h-5 [&_svg]:w-5"
+    >
+      {children}
     </button>
   )
 }

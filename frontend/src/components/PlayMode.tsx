@@ -24,6 +24,6 @@ export function PlayMode({
   return wide ? (
     <PlayDesktop play={play} onClose={onClose} onOpenSettings={onOpenSettings} />
   ) : (
-    <PlayScreen play={play} onClose={onClose} onSelectNav={onSelectNav} />
+    <PlayScreen play={play} onClose={onClose} onOpenSettings={onOpenSettings} onSelectNav={onSelectNav} />
   )
 }
