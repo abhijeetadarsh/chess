@@ -153,6 +153,7 @@ class PlayMoveRequest(BaseModel):
 class BotMoveRequest(BaseModel):
     fen: str = Field(..., description="FEN of the position for the bot to move in")
     elo: int = Field(1500, ge=MIN_BOT_ELO, le=MAX_BOT_ELO)
+    depth: int = Field(DEFAULT_DEPTH, ge=1, le=MAX_DEPTH)
 
 
 class SaveBotGameRequest(BaseModel):
@@ -298,7 +299,9 @@ async def play_bot_move(request: BotMoveRequest):
     """Play just the bot's move (used for its opening move when the user is Black)."""
     try:
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, bot_move, request.fen, request.elo)
+        return await loop.run_in_executor(
+            None, bot_move, request.fen, request.elo, _clamp_depth(request.depth)
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except ValueError as e:

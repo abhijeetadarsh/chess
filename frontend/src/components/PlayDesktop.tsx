@@ -5,7 +5,7 @@ import { type UsePlay } from '@/hooks/usePlay'
 import { BOT_ELO_PRESETS } from '@/lib/chess-assets'
 import { Button } from '@/components/ui/button'
 import { BoardView } from './BoardView'
-import { GameTypeMenu, PlayFeedbackCard, PlayMoveRow, PlaySetup } from './PlayScreen'
+import { GameTypeMenu, PlayFeedbackCard, PlayMoveNav, PlayMoveRow, PlaySetup } from './PlayScreen'
 
 /**
  * Desktop Play-vs-Bot layout. Mirrors the analysis view's three-pane grid
@@ -161,7 +161,7 @@ function PlayBoardPanel({ play }: { play: UsePlay }) {
                 <Search className="h-3.5 w-3.5" /> Reviewing
               </span>
               <span className="flex-1 truncate text-xs text-muted-foreground">
-                Your move {play.reviewIndex + 1} — play is paused
+                Move {play.reviewIndex + 1} of {play.moves.length} — play is paused
               </span>
               <Button size="sm" variant="secondary" onClick={play.resume}>
                 ↩ Resume
@@ -174,6 +174,13 @@ function PlayBoardPanel({ play }: { play: UsePlay }) {
             </div>
           ) : null}
         </div>
+
+        {/* Move-by-move navigation through the whole game (both sides). */}
+        {play.started && (
+          <div className="mt-2 flex-shrink-0 overflow-hidden rounded-xl border">
+            <PlayMoveNav play={play} />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -202,7 +209,7 @@ function PlayReviewPanel({ play }: { play: UsePlay }) {
         {play.moves.length > 0 && (
           <div className="mt-5">
             <div className="mb-1.5 text-[0.62rem] font-bold uppercase tracking-wide text-muted-foreground">
-              Your moves
+              Moves
             </div>
             <div className="flex flex-col gap-1">
               {play.moves.map((m, i) => (

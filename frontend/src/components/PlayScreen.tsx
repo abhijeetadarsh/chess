@@ -199,8 +199,8 @@ function PlayMovesTab({ play }: { play: UsePlay }) {
           <div className="flex h-full flex-col items-center justify-center gap-3.5 p-7 text-center text-muted-foreground">
             <div className="text-5xl opacity-70">♟</div>
             <p className="max-w-[300px] text-sm leading-relaxed">
-              Your moves will appear here as you play — each one scored with the engine's best
-              alternatives and a plain-English explanation, just like the game review.
+              Every move — yours and the bot's — appears here as you play, each scored with the
+              engine's best alternatives and a plain-English explanation, just like the game review.
             </p>
           </div>
         ) : (
@@ -225,12 +225,21 @@ function PlayMovesTab({ play }: { play: UsePlay }) {
   )
 }
 
-/* ── Bottom move-navigation strip (an exact copy of the analysis one) ────────── */
-function PlayMoveNav({ play }: { play: UsePlay }) {
+/**
+ * Move-navigation strip: ⏮◀▶⏭ stepping one ply at a time through the whole game
+ * (your moves and the bot's). Reaching the latest ply resumes live play (so you
+ * can move again). Shared by the mobile board tab and the desktop board panel.
+ */
+export function PlayMoveNav({ play }: { play: UsePlay }) {
   const total = play.moves.length
   const liveIdx = total - 1
   const idx = play.reviewing ? play.reviewIndex : liveIdx
   const cur = idx >= 0 ? play.moves[idx] : null
+  const stepNext = () => {
+    const t = idx + 1
+    if (t >= liveIdx) play.resume()
+    else play.reviewMove(t)
+  }
 
   return (
     <div className="flex items-center gap-1 border-t bg-card px-2 py-2">
@@ -250,11 +259,7 @@ function PlayMoveNav({ play }: { play: UsePlay }) {
           {total ? `${idx + 1} / ${total}` : 'No moves'}
         </span>
       </div>
-      <NavBtn
-        title="Next"
-        onClick={() => idx < liveIdx && play.reviewMove(idx + 1)}
-        disabled={total === 0 || !play.reviewing || idx >= liveIdx}
-      >
+      <NavBtn title="Next" onClick={stepNext} disabled={total === 0 || idx >= liveIdx}>
         <ChevronRight />
       </NavBtn>
       <NavBtn title="Live position" onClick={() => play.resume()} disabled={!play.reviewing}>
