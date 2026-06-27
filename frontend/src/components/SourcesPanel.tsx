@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bot, PanelLeftClose, PanelLeftOpen, Settings, Swords } from 'lucide-react'
+import { Bot, PanelLeftClose, PanelLeftOpen, Play, Settings } from 'lucide-react'
 
 import { useAuth } from '@/hooks/useAuth'
 import type { UseAnalysis } from '@/hooks/useAnalysis'
