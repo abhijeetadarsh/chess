@@ -1,11 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowLeft, FlipVertical2, Lightbulb, Loader2, Search, Settings, Swords } from 'lucide-react'
 
 import { type UsePlay } from '@/hooks/usePlay'
 import { BOT_ELO_PRESETS } from '@/lib/chess-assets'
 import { Button } from '@/components/ui/button'
 import { BoardView } from './BoardView'
-import { PlayFeedbackCard, PlayMoveRow, PlaySetup } from './PlayScreen'
+import { GameTypeMenu, PlayFeedbackCard, PlayMoveRow, PlaySetup } from './PlayScreen'
 
 /**
  * Desktop Play-vs-Bot layout. Mirrors the analysis view's three-pane grid
@@ -45,23 +45,31 @@ function PlayControlPanel({
   onOpenSettings: () => void
 }) {
   const preset = BOT_ELO_PRESETS.find((p) => p.elo === play.elo)
+  // Pre-game step: the game-type menu, then the bot difficulty/colour picker.
+  const [view, setView] = useState<'home' | 'setup'>('home')
+  const inSetup = play.started || view === 'setup'
+  const back = () => (!play.started && view === 'setup' ? setView('home') : onClose())
 
   return (
     <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card shadow">
       <div className="flex flex-shrink-0 items-center gap-2 border-b px-3 py-3">
         <button
-          onClick={onClose}
-          title="Back to analysis"
+          onClick={back}
+          title={!play.started && view === 'setup' ? 'Back' : 'Back to analysis'}
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
           <ArrowLeft className="h-[18px] w-[18px]" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 truncate text-sm font-extrabold tracking-tight">
-            <Swords className="h-4 w-4 text-primary" /> Play vs Bot
+            <Swords className="h-4 w-4 text-primary" /> {inSetup ? 'Play vs Bot' : 'Play'}
           </div>
           <div className="truncate text-[0.7rem] text-muted-foreground">
-            {play.started ? `Stockfish · ${play.elo} Elo` : 'Pick a level and play with live coaching'}
+            {play.started
+              ? `Stockfish · ${play.elo} Elo`
+              : view === 'setup'
+                ? 'Pick a level and play with live coaching'
+                : 'Choose how you want to play'}
           </div>
         </div>
         <button
@@ -109,8 +117,10 @@ function PlayControlPanel({
               )}
             </div>
           </div>
-        ) : (
+        ) : view === 'setup' ? (
           <PlaySetup play={play} />
+        ) : (
+          <GameTypeMenu onPlayBot={() => setView('setup')} />
         )}
       </div>
     </div>

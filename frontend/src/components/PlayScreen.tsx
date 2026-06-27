@@ -268,29 +268,39 @@ function PlayMoveNav({ play }: { play: UsePlay }) {
 function PlayHome({ onPlayBot }: { onPlayBot: () => void }) {
   return (
     <div className="scrollbar-thin h-full overflow-y-auto px-5 py-6">
-      <div className="mx-auto w-full max-w-md space-y-3">
-        <div className="mb-1 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
-          New game
-        </div>
-        <GameTypeCard
-          icon={<Bot className="h-6 w-6" />}
-          title="Play with Bot"
-          subtitle="Challenge Stockfish at any level — every move is coached."
-          onClick={onPlayBot}
-        />
-        <GameTypeCard
-          icon={<Users className="h-6 w-6" />}
-          title="Play a random person"
-          subtitle="Get matched with another player online."
-          comingSoon
-        />
-        <GameTypeCard
-          icon={<Swords className="h-6 w-6" />}
-          title="Play with a friend"
-          subtitle="Invite a friend with a private link."
-          comingSoon
-        />
+      <GameTypeMenu onPlayBot={onPlayBot} />
+    </div>
+  )
+}
+
+/**
+ * The game-type chooser (Play with Bot · random · friend). Shared by the mobile
+ * Play home and the desktop control panel so both offer the same entry menu.
+ */
+export function GameTypeMenu({ onPlayBot }: { onPlayBot: () => void }) {
+  return (
+    <div className="mx-auto w-full max-w-md space-y-3">
+      <div className="mb-1 text-[0.7rem] font-bold uppercase tracking-wider text-muted-foreground">
+        New game
       </div>
+      <GameTypeCard
+        icon={<Bot className="h-6 w-6" />}
+        title="Play with Bot"
+        subtitle="Challenge Stockfish at any level — every move is coached."
+        onClick={onPlayBot}
+      />
+      <GameTypeCard
+        icon={<Users className="h-6 w-6" />}
+        title="Play a random person"
+        subtitle="Get matched with another player online."
+        comingSoon
+      />
+      <GameTypeCard
+        icon={<Swords className="h-6 w-6" />}
+        title="Play with a friend"
+        subtitle="Invite a friend with a private link."
+        comingSoon
+      />
     </div>
   )
 }
