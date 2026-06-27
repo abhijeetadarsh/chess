@@ -39,7 +39,7 @@ export interface UsePlay {
   resign: () => void
   reviewMove: (index: number) => void
   resume: () => void
-  onPieceDrop: (source: string, target: string) => boolean
+  onPieceDrop: (source: string, target: string, promotion?: string) => boolean
 }
 
 export function usePlay(): UsePlay {
@@ -70,6 +70,12 @@ export function usePlay(): UsePlay {
   const gameOverRef = useRef(false)
   const eloRef = useRef(elo)
   eloRef.current = elo
+  // Mirrors of the move list + reviewed index so the nav callbacks can tell a
+  // single-ply step (glide one piece) from a bigger jump (snap).
+  const movesRef = useRef<MoveData[]>([])
+  movesRef.current = moves
+  const reviewIndexRef = useRef(-1)
+  reviewIndexRef.current = reviewIndex
   // A separate Chess instance that accumulates *every* move (user + bot) in
   // order, kept only for exporting a PGN of the finished game. The authoritative
   // `chessRef` is rebuilt from FENs as moves stream back and so loses history.
@@ -194,26 +200,28 @@ export function usePlay(): UsePlay {
   }, [started, userColor, applyGameOver])
 
   const reviewMove = useCallback((index: number) => {
-    setMoves((list) => {
-      const m = list[index]
-      if (m) {
-        reviewingRef.current = true
-        setReviewing(true)
-        setReviewIndex(index)
-        setAnimationMs(0)
-        setFen(m.fen)
-        setHighlight({ from: m.from, to: m.to })
-        setEvalInfo({ eval: m.eval, mate: m.mate_in })
-      }
-      return list
-    })
+    const m = movesRef.current[index]
+    if (!m) return
+    // The ply shown right now: the reviewed index, or the latest ply when live.
+    const prev = reviewingRef.current ? reviewIndexRef.current : movesRef.current.length - 1
+    // Glide a single forward/back step (one piece moves); snap for bigger jumps.
+    setAnimationMs(Math.abs(index - prev) === 1 ? 260 : 0)
+    reviewingRef.current = true
+    setReviewing(true)
+    setReviewIndex(index)
+    setFen(m.fen)
+    setHighlight({ from: m.from, to: m.to })
+    setEvalInfo({ eval: m.eval, mate: m.mate_in })
   }, [])
 
   const resume = useCallback(() => {
+    const liveIdx = movesRef.current.length - 1
+    const prev = reviewingRef.current ? reviewIndexRef.current : liveIdx
+    // Going back to the live position glides when it's just one step away.
+    setAnimationMs(Math.abs(liveIdx - prev) === 1 ? 260 : 0)
     reviewingRef.current = false
     setReviewing(false)
     setReviewIndex(-1)
-    setAnimationMs(0)
     setFen(liveFenRef.current)
     setHighlight(liveHighlightRef.current)
   }, [])
@@ -262,13 +270,13 @@ export function usePlay(): UsePlay {
   )
 
   const onPieceDrop = useCallback(
-    (source: string, target: string): boolean => {
+    (source: string, target: string, promotion = 'q'): boolean => {
       if (!started || thinkingRef.current || reviewingRef.current || gameOverRef.current) return false
       const beforeFen = chessRef.current.fen()
       const game = new Chess(beforeFen)
       let move
       try {
-        move = game.move({ from: source, to: target, promotion: 'q' })
+        move = game.move({ from: source, to: target, promotion })
       } catch {
         return false
       }

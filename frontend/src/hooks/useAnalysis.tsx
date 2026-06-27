@@ -47,7 +47,7 @@ export interface UseAnalysis {
   goToMove: (index: number) => void
   flip: () => void
   playAlternative: (index: number, uci: string) => void
-  onPieceDrop: (source: string, target: string) => boolean
+  onPieceDrop: (source: string, target: string, promotion?: string) => boolean
   backToGame: () => void
 }
 
@@ -152,11 +152,11 @@ export function useAnalysis(): UseAnalysis {
   }, [])
 
   const onPieceDrop = useCallback(
-    (source: string, target: string): boolean => {
+    (source: string, target: string, promotion = 'q'): boolean => {
       const chess = exploreChessRef.current ?? new Chess(currentFen)
       let move
       try {
-        move = chess.move({ from: source, to: target, promotion: 'q' })
+        move = chess.move({ from: source, to: target, promotion })
       } catch {
         return false
       }

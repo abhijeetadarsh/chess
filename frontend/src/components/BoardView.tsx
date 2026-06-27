@@ -30,11 +30,32 @@ function findCheckSquare(fen: string): string | null {
   return null
 }
 
+/** If `from`→`to` is a *legal pawn promotion*, return the mover's colour, else null. */
+function promotionColor(fen: string, from: string, to: string): 'w' | 'b' | null {
+  try {
+    const game = new Chess(fen)
+    const piece = game.get(from as Square)
+    if (!piece || piece.type !== 'p') return null
+    const legal = game.moves({ square: from as Square, verbose: true }).some((m) => m.to === to && m.promotion)
+    return legal ? piece.color : null
+  } catch {
+    return null
+  }
+}
+
+const PROMO_PIECES = ['q', 'r', 'b', 'n'] as const
+
 const EVAL_BAR_SPACE = 22 // horizontal eval bar row (16) + gap (6), stacked above the board
 
 export interface BoardHighlight {
   from: string
   to: string
+}
+
+interface PendingPromotion {
+  from: string
+  to: string
+  color: 'w' | 'b'
 }
 
 /** Arrow keys step through moves; `f` flips the board. Shared by both layouts. */
@@ -74,7 +95,7 @@ export function BoardView({
 }: {
   fen: string
   orientation: 'white' | 'black'
-  onPieceDrop: (source: string, target: string) => boolean
+  onPieceDrop: (source: string, target: string, promotion?: string) => boolean
   highlight: BoardHighlight | null
   evalInfo: EvalInfo
   animationMs?: number
@@ -177,10 +198,33 @@ export function BoardView({
   const tapMove = !!settings.tap_to_move
   const interactive = draggable // both drag and tap are blocked when this is false
   const [selected, setSelected] = useState<string | null>(null)
+  // When a pawn reaches the last rank we hold the move here and ask which piece
+  // to promote to instead of auto-queening. Works for drag and tap alike.
+  const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
 
-  // Clear any selection whenever the position changes (a move was made/navigated)
-  // or tap-to-move is switched off.
-  useEffect(() => setSelected(null), [fen, tapMove])
+  // Clear any selection/promotion prompt whenever the position changes (a move
+  // was made/navigated) or tap-to-move is switched off.
+  useEffect(() => {
+    setSelected(null)
+    setPendingPromotion(null)
+  }, [fen, tapMove])
+
+  // A drag that lands a pawn on the back rank opens the picker instead of moving;
+  // everything else goes straight through to the parent handler.
+  const handleDrop = (source: string, target: string): boolean => {
+    const color = promotionColor(fen, source, target)
+    if (color) {
+      setPendingPromotion({ from: source, to: target, color })
+      return false // defer — the picker completes the move
+    }
+    return onPieceDrop(source, target)
+  }
+
+  const choosePromotion = (piece: string) => {
+    if (pendingPromotion) onPieceDrop(pendingPromotion.from, pendingPromotion.to, piece)
+    setPendingPromotion(null)
+    setSelected(null)
+  }
 
   const legalTargets = useMemo(() => {
     const map = new Map<string, boolean>() // square -> isCapture
@@ -203,6 +247,12 @@ export function BoardView({
       return
     }
     if (selected && legalTargets.has(square)) {
+      const color = promotionColor(fen, selected, square)
+      if (color) {
+        setPendingPromotion({ from: selected, to: square, color })
+        setSelected(null)
+        return
+      }
       onPieceDrop(selected, square)
       setSelected(null)
       return
@@ -245,13 +295,13 @@ export function BoardView({
     >
       <div className="flex flex-col gap-1.5" style={{ width: boardSize, height: boardSize + EVAL_BAR_SPACE }}>
         <EvalBar evalInfo={evalInfo} orientation={orientation} />
-        <div className="overflow-hidden rounded-md shadow" style={{ width: boardSize, height: boardSize }}>
+        <div className="relative overflow-hidden rounded-md shadow" style={{ width: boardSize, height: boardSize }}>
           <Chessboard
             id="board"
             position={fen}
             boardOrientation={orientation}
             boardWidth={boardSize}
-            onPieceDrop={(s, t) => onPieceDrop(s, t)}
+            onPieceDrop={(s, t) => handleDrop(s, t)}
             onSquareClick={handleSquareClick}
             customPieces={customPieces}
             customLightSquareStyle={{ backgroundColor: light }}
@@ -260,6 +310,33 @@ export function BoardView({
             animationDuration={animationMs}
             arePiecesDraggable={draggable && !tapMove}
           />
+
+          {/* Promotion picker — pick the piece instead of auto-queening. */}
+          {pendingPromotion && (
+            <div
+              className="absolute inset-0 z-30 flex items-center justify-center bg-black/45 backdrop-blur-[1px]"
+              onClick={() => setPendingPromotion(null)}
+            >
+              <div
+                className="flex gap-1.5 rounded-2xl border bg-card p-2 shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {PROMO_PIECES.map((p) => {
+                  const code = (pendingPromotion.color === 'w' ? 'w' : 'b') + p.toUpperCase()
+                  return (
+                    <button
+                      key={p}
+                      title={`Promote to ${p.toUpperCase()}`}
+                      onClick={() => choosePromotion(p)}
+                      className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary transition-colors hover:bg-primary/15"
+                    >
+                      <img src={pieceUrl(settings.piece_set, code)} alt={p} width={44} height={44} draggable={false} />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
