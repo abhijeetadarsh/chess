@@ -5,6 +5,7 @@ import type {
   EvalResult,
   GameInfo,
   PlayMoveResult,
+  SavedBotGame,
   StreamEvent,
   UserSettings,
 } from './types'
@@ -116,6 +117,31 @@ export async function botMove(fen: string, elo: number): Promise<BotMoveResult> 
   })
   if (!r.ok) return asError(r)
   return r.json()
+}
+
+export interface SaveBotGamePayload {
+  pgn: string
+  user_color: 'white' | 'black'
+  elo: number
+  result: string | null
+  reason: string | null
+}
+
+/** Persist a finished game vs the bot. Best-effort: never throws (fire-and-forget). */
+export async function saveBotGame(payload: SaveBotGamePayload): Promise<void> {
+  await fetch(apiUrl('/play/games'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload),
+  }).catch(() => {})
+}
+
+/** List the current user's saved bot games (most recent first). */
+export async function listBotGames(): Promise<SavedBotGame[]> {
+  const r = await fetch(apiUrl('/play/games'), { headers: authHeaders() })
+  if (!r.ok) return asError(r)
+  const data = await r.json()
+  return data.games
 }
 
 export async function evaluateFen(fen: string, depth = 12): Promise<EvalResult> {

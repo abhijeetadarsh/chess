@@ -43,7 +43,7 @@ export interface UsePlay {
 }
 
 export function usePlay(): UsePlay {
-  const { settings } = useAuth()
+  const { settings, user } = useAuth()
 
   const [started, setStarted] = useState(false)
   const [elo, setElo] = useState(1200)
@@ -70,6 +70,13 @@ export function usePlay(): UsePlay {
   const gameOverRef = useRef(false)
   const eloRef = useRef(elo)
   eloRef.current = elo
+  // A separate Chess instance that accumulates *every* move (user + bot) in
+  // order, kept only for exporting a PGN of the finished game. The authoritative
+  // `chessRef` is rebuilt from FENs as moves stream back and so loses history.
+  const historyRef = useRef(new Chess())
+  const savedRef = useRef(false)
+  const userRef = useRef(user)
+  userRef.current = user
 
   const overText = (g: PlayGameOver): string => {
     if (g.winner === null) return `Draw — ${g.reason ?? 'game over'}.`
@@ -84,6 +91,27 @@ export function usePlay(): UsePlay {
       gameOverRef.current = true
       setGameOver(g)
       setStatus(overText(g))
+      // Persist the finished game (best-effort) so it can be reviewed later.
+      if (!savedRef.current && historyRef.current.history().length > 0) {
+        savedRef.current = true
+        const h = historyRef.current
+        const botName = `Stockfish (${eloRef.current})`
+        const you = userRef.current?.username || 'You'
+        h.header(
+          'Event', 'Play vs Bot',
+          'Site', 'Chess Analysis',
+          'White', userColor === 'white' ? you : botName,
+          'Black', userColor === 'black' ? you : botName,
+          'Result', g.result || '*',
+        )
+        void api.saveBotGame({
+          pgn: h.pgn(),
+          user_color: userColor,
+          elo: eloRef.current,
+          result: g.result,
+          reason: g.reason,
+        })
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [userColor],
@@ -92,6 +120,8 @@ export function usePlay(): UsePlay {
   const resetTo = useCallback((color: 'white' | 'black') => {
     const c = new Chess()
     chessRef.current = c
+    historyRef.current = new Chess()
+    savedRef.current = false
     liveFenRef.current = c.fen()
     liveHighlightRef.current = null
     thinkingRef.current = false
@@ -125,6 +155,7 @@ export function usePlay(): UsePlay {
         liveHighlightRef.current = hl
         setHighlight(hl)
         playMoveSound(res.bot.san.includes('x'), !!settings.sound_enabled, settings.sound_style)
+        try { historyRef.current.move(res.bot.san) } catch { /* best-effort PGN history */ }
       }
       setEvalInfo({ eval: res.eval, mate: res.mate })
       if (res.game_over) applyGameOver({ result: res.result, reason: res.reason, winner: res.winner })
@@ -193,6 +224,15 @@ export function usePlay(): UsePlay {
         setMoves((prev) => [...prev, res.feedback])
         chessRef.current = new Chess(res.fen)
         liveFenRef.current = res.fen
+        // Accumulate the user's move (then the bot's reply) for the PGN export.
+        try {
+          historyRef.current.move({
+            from: uci.slice(0, 2),
+            to: uci.slice(2, 4),
+            promotion: uci.length > 4 ? uci[4] : undefined,
+          })
+          if (res.bot) historyRef.current.move(res.bot.san)
+        } catch { /* best-effort PGN history */ }
         if (res.bot) {
           setAnimationMs(260)
           setFen(res.bot.fen)

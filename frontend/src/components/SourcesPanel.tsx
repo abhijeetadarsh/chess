@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { PanelLeftClose, PanelLeftOpen, Settings, Swords } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Bot, PanelLeftClose, PanelLeftOpen, Settings, Swords } from 'lucide-react'
 
 import { useAuth } from '@/hooks/useAuth'
 import type { UseAnalysis } from '@/hooks/useAnalysis'
+import * as api from '@/lib/api'
 import { SPEED_PRESETS } from '@/lib/chess-assets'
-import type { GameInfo } from '@/lib/types'
+import type { GameInfo, SavedBotGame } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -27,6 +28,21 @@ export function SourceForm({ analysis, onPlayBot }: { analysis: UseAnalysis; onP
   const [lcUser, setLcUser] = useState(settings.lichess_username)
   const [limit, setLimit] = useState(settings.default_games)
   const [pgnText, setPgnText] = useState('')
+  const [botGames, setBotGames] = useState<SavedBotGame[] | null>(null)
+
+  // Lazily load the user's saved bot games the first time that tab is opened,
+  // and refresh whenever it's reopened (a freshly finished game may exist).
+  useEffect(() => {
+    if (tab !== 'bot') return
+    let cancelled = false
+    api.listBotGames().then(
+      (list) => !cancelled && setBotGames(list),
+      () => !cancelled && setBotGames([]),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [tab])
 
   return (
     <>
@@ -48,6 +64,9 @@ export function SourceForm({ analysis, onPlayBot }: { analysis: UseAnalysis; onP
           </TabsTrigger>
           <TabsTrigger value="pgn" className="flex-1">
             PGN
+          </TabsTrigger>
+          <TabsTrigger value="bot" className="flex-1">
+            Bot
           </TabsTrigger>
         </TabsList>
 
@@ -96,6 +115,23 @@ export function SourceForm({ analysis, onPlayBot }: { analysis: UseAnalysis; onP
           <Button className="w-full" onClick={() => analysis.analyzePgn(pgnText, null)}>
             Analyze PGN
           </Button>
+        </TabsContent>
+
+        <TabsContent value="bot" className="space-y-2">
+          {botGames === null ? (
+            <div className="py-6 text-center text-xs text-muted-foreground">Loading your games…</div>
+          ) : botGames.length === 0 ? (
+            <div className="flex flex-col items-center gap-1.5 py-6 text-center text-xs text-muted-foreground">
+              <Bot className="h-5 w-5 opacity-60" />
+              No saved games yet. Finish a game vs the bot and it'll appear here.
+            </div>
+          ) : (
+            <div className="scrollbar-thin max-h-[260px] space-y-2 overflow-y-auto">
+              {botGames.map((g) => (
+                <BotGameItem key={g.id} game={g} onClick={() => analysis.analyzePgn(g.pgn, null)} />
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -212,6 +248,36 @@ export function SourcesPanel({
             />
           ))
         )}
+      </div>
+    </div>
+  )
+}
+
+function botGameOutcome(g: SavedBotGame): { label: string; cls: string } {
+  if (!g.result || g.result === '*') return { label: 'Unfinished', cls: 'text-muted-foreground' }
+  if (g.result === '1/2-1/2') return { label: 'Draw', cls: 'text-muted-foreground' }
+  const userWon = (g.result === '1-0') === (g.user_color === 'white')
+  return userWon ? { label: 'You won', cls: 'text-good' } : { label: 'You lost', cls: 'text-blunder' }
+}
+
+function BotGameItem({ game, onClick }: { game: SavedBotGame; onClick: () => void }) {
+  const outcome = botGameOutcome(game)
+  const date = game.created_at ? game.created_at.slice(0, 10) : ''
+  return (
+    <div
+      onClick={onClick}
+      className="cursor-pointer rounded-xl border border-transparent bg-secondary/60 p-3 transition-all hover:-translate-y-px hover:shadow"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-sm font-semibold">
+          {game.user_color === 'white' ? '⬜' : '⬛'} vs Stockfish ({game.elo})
+        </span>
+        <span className={cn('text-xs font-bold', outcome.cls)}>{outcome.label}</span>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-2.5 text-[0.71rem] text-muted-foreground">
+        {game.reason && <span className="capitalize">{game.reason}</span>}
+        {date && <span>{date}</span>}
+        <span>Tap to review</span>
       </div>
     </div>
   )
