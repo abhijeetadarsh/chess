@@ -41,7 +41,13 @@ export function SettingsDrawer({ open, onOpenChange }: { open: boolean; onOpenCh
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="flex w-[428px] max-w-full flex-col p-0 sm:max-w-none">
+      {/* Bottom sheet that rises only to just below the top nav bar (the mobile
+          header is h-14 = 3.5rem, plus the status-bar safe-area inset). */}
+      <SheetContent
+        side="bottom"
+        className="mx-auto flex max-w-2xl flex-col gap-0 rounded-t-2xl p-0 top-[calc(3.5rem_+_env(safe-area-inset-top))]"
+      >
+        <div className="mx-auto mt-2.5 h-1.5 w-10 flex-shrink-0 rounded-full bg-muted-foreground/30" />
         <SheetHeader className="flex-shrink-0 border-b px-5 py-4">
           <SheetTitle>Settings</SheetTitle>
         </SheetHeader>
